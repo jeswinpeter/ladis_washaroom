@@ -1,4 +1,4 @@
-package com.example.travel_companion
+package com.example.myapplication
 
 import org.junit.Test
 
