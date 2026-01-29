@@ -2,10 +2,12 @@ package com.example.myapplication
 
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.widget.ImageButton
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
+import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
 
@@ -30,6 +32,15 @@ class MainActivity : AppCompatActivity() {
         mapView.getMapAsync { map ->
             map.setStyle("https://demotiles.maplibre.org/style.json")
             map.cameraPosition = CameraPosition.Builder().target(LatLng(0.0,0.0)).zoom(1.0).build()
+            // Zoom in button
+            findViewById<ImageButton>(R.id.btnZoomIn).setOnClickListener {
+                map.animateCamera(CameraUpdateFactory.zoomIn())
+            }
+
+            // Zoom out button
+            findViewById<ImageButton>(R.id.btnZoomOut).setOnClickListener {
+                map.animateCamera(CameraUpdateFactory.zoomOut())
+            }
         }
     }
 
