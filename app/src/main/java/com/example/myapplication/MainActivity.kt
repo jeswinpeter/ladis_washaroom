@@ -8,7 +8,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
-import org.maplibre.android.MapLibre
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
@@ -21,7 +20,6 @@ import android.view.inputmethod.EditorInfo
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.Toast
-import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +30,6 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
-import org.maplibre.android.maps.MapView
 import java.net.URL
 import java.net.URLEncoder
 
@@ -66,6 +63,12 @@ class MainActivity : AppCompatActivity() {
             uiSettings.isZoomGesturesEnabled = true        // pinch zoom
             uiSettings.isDoubleTapGesturesEnabled = true   // double tap to zoom in
             uiSettings.isQuickZoomGesturesEnabled = true   // double tap + hold + drag
+
+            btnMyLocation.setOnClickListener {
+                handleMyLocationClick()
+
+            }
+
             // Zoom in button
             findViewById<ImageButton>(R.id.btnZoomIn).setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomIn())
@@ -105,13 +108,15 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+                val url =
+                    "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
                 val response = URL(url).readText()
 
                 // Check if empty results
                 if (response == "[]") {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT)
+                            .show()
                     }
                     return@launch
                 }
@@ -131,19 +136,23 @@ class MainActivity : AppCompatActivity() {
                         CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0),
                         1000  // 1 second animation
                     )
-                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG)
+                        .show()
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Search failed: ${e.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    ).show()
                 }
             }
-        }
 
-        btnMyLocation.setOnClickListener {
-            handleMyLocationClick()
-        }
+
+        }}
+
 
     private fun handleMyLocationClick() {
         if (ContextCompat.checkSelfPermission(
