@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.annotation.RequiresPermission
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -21,6 +20,7 @@ import android.widget.FrameLayout
 import androidx.cardview.widget.CardView
 import android.widget.ImageButton
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -41,6 +41,7 @@ import java.net.URLEncoder
 
 class MainActivity : AppCompatActivity() {
 
+    // Declare a variable for MapView
     private lateinit var mapView: MapView
     private lateinit var mapLibreMap: MapLibreMap
     private var locationComponent: LocationComponent? = null
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Init MapLibre
         MapLibre.getInstance(this)
 
         // Init layout view
@@ -82,29 +84,45 @@ class MainActivity : AppCompatActivity() {
 
             }
 
+
+            val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
+            val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
+            val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+            val searchEditText = findViewById<EditText>(R.id.searchEditText)
+
+
             // Zoom in button
-            findViewById<ImageButton>(R.id.btnZoomIn).setOnClickListener {
+            btnZoomIn.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomIn())
             }
 
             // Zoom out button
-            findViewById<ImageButton>(R.id.btnZoomOut).setOnClickListener {
+            btnZoomOut.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomOut())
             }
+            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+            btnSearch.tag = "search"
             // Search button click
-            findViewById<ImageButton>(R.id.btnSearch).setOnClickListener {
-                val query = findViewById<EditText>(R.id.searchEditText).text.toString()
-                if (query.isNotBlank()) {
-                    searchLocation(query, map)
+            btnSearch.setOnClickListener {
+                val query = searchEditText.text.toString()
+                if (btnSearch.tag == "search") {
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map)
+                    } else {
+                        Toast.makeText(this, "Enter a location", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(this, "Enter a location", Toast.LENGTH_SHORT).show()
+                    // CLEAR MODE: Just reset text and icon
+                    searchEditText.text.clear()
+                    btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+                    btnSearch.tag = "search"
                 }
             }
 
             // Search on keyboard "Search" button
-            findViewById<EditText>(R.id.searchEditText).setOnEditorActionListener { _, actionId, _ ->
+            searchEditText.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                    val query = findViewById<EditText>(R.id.searchEditText).text.toString()
+                    val query = searchEditText.text.toString()
                     if (query.isNotBlank()) {
                         searchLocation(query, map)
                     }
@@ -117,6 +135,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Search function using Nominatim
+    //Switch to MapTiler geocoding or Photon for release
     private fun searchLocation(query: String, map: org.maplibre.android.maps.MapLibreMap) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
@@ -152,6 +171,8 @@ class MainActivity : AppCompatActivity() {
                 val lat = json.getString("lat").toDouble()
                 val lon = json.getString("lon").toDouble()
                 val displayName = json.getString("display_name")
+                val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+                val searchEditText = findViewById<EditText>(R.id.searchEditText)
 
                 // Update UI on main thread
                 withContext(Dispatchers.Main) {
@@ -160,6 +181,15 @@ class MainActivity : AppCompatActivity() {
                         CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0),
                         1000  // 1 second animation
                     )
+
+                    // 2. Change Icon to X (Clear)
+                    btnSearch.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    btnSearch.tag = "clear"
+
+                    // 3. Hide Keyboard
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+
                     Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                 }
 
