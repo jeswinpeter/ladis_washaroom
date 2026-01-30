@@ -18,9 +18,14 @@ import org.maplibre.android.maps.Style
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
+import android.widget.FrameLayout
+import androidx.cardview.widget.CardView
 import android.widget.ImageButton
 import android.widget.Toast
 import com.example.myapplication.R
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -52,6 +57,18 @@ class MainActivity : AppCompatActivity() {
 
         mapView.onCreate(savedInstanceState)
 
+        // Apply window insets to search bar
+        val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
+        ViewCompat.setOnApplyWindowInsetsListener(searchBar) { view, insets ->
+            val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.updateLayoutParams<FrameLayout.LayoutParams> {
+                topMargin = systemBars.top + 16  // Status bar + 16dp
+            }
+            insets
+        }
+
+        // Init the MapView
+        mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
             mapLibreMap = map
             map.setStyle(

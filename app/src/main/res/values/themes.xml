@@ -2,8 +2,24 @@
     <!-- Base application theme. -->
     <style name="Base.Theme.MyApplication" parent="Theme.Material3.DayNight.NoActionBar">
         <!-- Customize your light theme here. -->
-        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
-    </style>
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/Blue</item>
+        <item name="colorPrimaryVariant">@color/DarkBlue</item>
+        <item name="colorOnPrimary">@color/white</item>
 
+        <!-- Status bar transparent -->
+        <!--  <item name="android:windowTranslucentStatus">true</item> To give a black tint to statusBar -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+
+        <!-- Navigation bar (optional) -->
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+
+
+        <!-- <item name="colorPrimary">@color/my_light_primary</item> -->
+
+
+    </style>
     <style name="Theme.MyApplication" parent="Base.Theme.MyApplication" />
+
 </resources>
