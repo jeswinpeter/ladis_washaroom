@@ -13,7 +13,6 @@ import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
@@ -35,6 +34,8 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
+import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
@@ -50,12 +51,11 @@ class MainActivity : AppCompatActivity() {
 
         MapLibre.getInstance(this)
 
-        setContentView(R.layout.activity_main)
-
-        mapView = findViewById(R.id.mapView)
+        // Init layout view
+        val inflater = LayoutInflater.from(this)
+        val rootView = inflater.inflate(R.layout.activity_main, null)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
-
-        mapView.onCreate(savedInstanceState)
+        setContentView(rootView)
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
@@ -70,10 +70,6 @@ class MainActivity : AppCompatActivity() {
         // Init the MapView
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
-            mapLibreMap = map
-            map.setStyle(
-                Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")
-            )
             map.setStyle("https://demotiles.maplibre.org/style.json")
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
@@ -120,20 +116,31 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Search function using Nominatim (OpenStreetMap geocoding)
+    // Search function using Nominatim
     private fun searchLocation(query: String, map: org.maplibre.android.maps.MapLibreMap) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url =
-                    "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
-                val response = URL(url).readText()
+                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+
+                connection.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    throw Exception("Server returned code $responseCode")
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+
 
                 // Check if empty results
                 if (response == "[]") {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
@@ -153,22 +160,17 @@ class MainActivity : AppCompatActivity() {
                         CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0),
                         1000  // 1 second animation
                     )
-                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG)
-                        .show()
+                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Search failed: ${e.localizedMessage}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
 
-
-        }}
 
 
     private fun handleMyLocationClick() {
