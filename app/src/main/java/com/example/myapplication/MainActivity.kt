@@ -56,8 +56,9 @@ class MainActivity : AppCompatActivity() {
         // Init layout view
         val inflater = LayoutInflater.from(this)
         val rootView = inflater.inflate(R.layout.activity_main, null)
-        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         setContentView(rootView)
+        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
+
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
@@ -72,6 +73,7 @@ class MainActivity : AppCompatActivity() {
         // Init the MapView
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
+            this.mapLibreMap = map
             map.setStyle("https://demotiles.maplibre.org/style.json")
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
@@ -137,12 +139,16 @@ class MainActivity : AppCompatActivity() {
     // Search function using Nominatim
     //Switch to MapTiler geocoding or Photon for release
     private fun searchLocation(query: String, map: org.maplibre.android.maps.MapLibreMap) {
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
                 val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
 
                 val connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 5000 // 5 seconds
+                connection.readTimeout = 5000
                 connection.requestMethod = "GET"
 
                 connection.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
@@ -171,8 +177,7 @@ class MainActivity : AppCompatActivity() {
                 val lat = json.getString("lat").toDouble()
                 val lon = json.getString("lon").toDouble()
                 val displayName = json.getString("display_name")
-                val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
-                val searchEditText = findViewById<EditText>(R.id.searchEditText)
+
 
                 // Update UI on main thread
                 withContext(Dispatchers.Main) {
@@ -217,15 +222,22 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (!isLocationEnabled) {
-            mapLibreMap.style?.let { enableLocation(it) }
-        } else {
-            // Already enabled → just re-center
-            mapLibreMap.locationComponent.forceLocationUpdate(
-                mapLibreMap.locationComponent.lastKnownLocation
-            )
+            if (!isLocationEnabled) {
+                mapLibreMap.style?.let { enableLocation(it) }
+            } else {
+                // SAFE CHECK: Ensure we actually have a location before forcing an update
+                val lastLoc = mapLibreMap.locationComponent.lastKnownLocation
+                if (lastLoc != null) {
+                    mapLibreMap.locationComponent.forceLocationUpdate(lastLoc)
+                    // Optional: Move camera to user if they are off-screen
+                    mapLibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                        LatLng(lastLoc.latitude, lastLoc.longitude), 15.0))
+                } else {
+                    Toast.makeText(this, "Searching for GPS signal...", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-    }
+
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun enableLocation(style: Style) {
