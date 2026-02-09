@@ -74,7 +74,11 @@ class MainActivity : AppCompatActivity() {
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
             this.mapLibreMap = map
-            map.setStyle("https://demotiles.maplibre.org/style.json")
+
+            // Changing map style
+            val styleURL = "https://tiles.openfreemap.org/styles/liberty"
+            map.setStyle(styleURL)
+
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
             uiSettings.isZoomGesturesEnabled = true        // pinch zoom
