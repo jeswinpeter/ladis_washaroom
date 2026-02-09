@@ -4,7 +4,6 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.annotation.RequiresPermission
-import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -13,7 +12,6 @@ import org.maplibre.android.location.LocationComponentActivationOptions
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.maps.MapLibreMap
-import org.maplibre.android.maps.MapView
 import org.maplibre.android.maps.Style
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
@@ -22,6 +20,7 @@ import android.widget.FrameLayout
 import androidx.cardview.widget.CardView
 import android.widget.ImageButton
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -35,11 +34,14 @@ import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
+import org.maplibre.android.maps.MapView
+import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
 
 class MainActivity : AppCompatActivity() {
 
+    // Declare a variable for MapView
     private lateinit var mapView: MapView
     private lateinit var mapLibreMap: MapLibreMap
     private var locationComponent: LocationComponent? = null
@@ -48,14 +50,15 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Init MapLibre
         MapLibre.getInstance(this)
 
-        setContentView(R.layout.activity_main)
-
-        mapView = findViewById(R.id.mapView)
+        // Init layout view
+        val inflater = LayoutInflater.from(this)
+        val rootView = inflater.inflate(R.layout.activity_main, null)
+        setContentView(rootView)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
 
-        mapView.onCreate(savedInstanceState)
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
@@ -70,10 +73,7 @@ class MainActivity : AppCompatActivity() {
         // Init the MapView
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
-            mapLibreMap = map
-            map.setStyle(
-                Style.Builder().fromUri("https://demotiles.maplibre.org/style.json")
-            )
+            this.mapLibreMap = map
             map.setStyle("https://demotiles.maplibre.org/style.json")
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
@@ -86,29 +86,45 @@ class MainActivity : AppCompatActivity() {
 
             }
 
+
+            val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
+            val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
+            val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+            val searchEditText = findViewById<EditText>(R.id.searchEditText)
+
+
             // Zoom in button
-            findViewById<ImageButton>(R.id.btnZoomIn).setOnClickListener {
+            btnZoomIn.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomIn())
             }
 
             // Zoom out button
-            findViewById<ImageButton>(R.id.btnZoomOut).setOnClickListener {
+            btnZoomOut.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomOut())
             }
+            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+            btnSearch.tag = "search"
             // Search button click
-            findViewById<ImageButton>(R.id.btnSearch).setOnClickListener {
-                val query = findViewById<EditText>(R.id.searchEditText).text.toString()
-                if (query.isNotBlank()) {
-                    searchLocation(query, map)
+            btnSearch.setOnClickListener {
+                val query = searchEditText.text.toString()
+                if (btnSearch.tag == "search") {
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map)
+                    } else {
+                        Toast.makeText(this, "Enter a location", Toast.LENGTH_SHORT).show()
+                    }
                 } else {
-                    Toast.makeText(this, "Enter a location", Toast.LENGTH_SHORT).show()
+                    // CLEAR MODE: Just reset text and icon
+                    searchEditText.text.clear()
+                    btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+                    btnSearch.tag = "search"
                 }
             }
 
             // Search on keyboard "Search" button
-            findViewById<EditText>(R.id.searchEditText).setOnEditorActionListener { _, actionId, _ ->
+            searchEditText.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                    val query = findViewById<EditText>(R.id.searchEditText).text.toString()
+                    val query = searchEditText.text.toString()
                     if (query.isNotBlank()) {
                         searchLocation(query, map)
                     }
@@ -120,20 +136,36 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Search function using Nominatim (OpenStreetMap geocoding)
+    // Search function using Nominatim
+    //Switch to MapTiler geocoding or Photon for release
     private fun searchLocation(query: String, map: org.maplibre.android.maps.MapLibreMap) {
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url =
-                    "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
-                val response = URL(url).readText()
+                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.connectTimeout = 5000 // 5 seconds
+                connection.readTimeout = 5000
+                connection.requestMethod = "GET"
+
+                connection.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
+                connection.connect()
+
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    throw Exception("Server returned code $responseCode")
+                }
+
+                val response = connection.inputStream.bufferedReader().use { it.readText() }
+
 
                 // Check if empty results
                 if (response == "[]") {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
@@ -146,6 +178,7 @@ class MainActivity : AppCompatActivity() {
                 val lon = json.getString("lon").toDouble()
                 val displayName = json.getString("display_name")
 
+
                 // Update UI on main thread
                 withContext(Dispatchers.Main) {
                     // Move camera to location
@@ -153,22 +186,26 @@ class MainActivity : AppCompatActivity() {
                         CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0),
                         1000  // 1 second animation
                     )
-                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG)
-                        .show()
+
+                    // 2. Change Icon to X (Clear)
+                    btnSearch.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    btnSearch.tag = "clear"
+
+                    // 3. Hide Keyboard
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+
+                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(
-                        this@MainActivity,
-                        "Search failed: ${e.localizedMessage}",
-                        Toast.LENGTH_SHORT
-                    ).show()
+                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
+        }
+    }
 
-
-        }}
 
 
     private fun handleMyLocationClick() {
@@ -185,15 +222,22 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        if (!isLocationEnabled) {
-            mapLibreMap.style?.let { enableLocation(it) }
-        } else {
-            // Already enabled → just re-center
-            mapLibreMap.locationComponent.forceLocationUpdate(
-                mapLibreMap.locationComponent.lastKnownLocation
-            )
+            if (!isLocationEnabled) {
+                mapLibreMap.style?.let { enableLocation(it) }
+            } else {
+                // SAFE CHECK: Ensure we actually have a location before forcing an update
+                val lastLoc = mapLibreMap.locationComponent.lastKnownLocation
+                if (lastLoc != null) {
+                    mapLibreMap.locationComponent.forceLocationUpdate(lastLoc)
+                    // Optional: Move camera to user if they are off-screen
+                    mapLibreMap.animateCamera(CameraUpdateFactory.newLatLngZoom(
+                        LatLng(lastLoc.latitude, lastLoc.longitude), 15.0))
+                } else {
+                    Toast.makeText(this, "Searching for GPS signal...", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
-    }
+
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun enableLocation(style: Style) {
