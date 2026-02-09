@@ -5,6 +5,49 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
+    <androidx.cardview.widget.CardView
+        android:id="@+id/directionsPanel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <EditText
+                android:id="@+id/etOrigin"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Current Location"
+                android:drawableStart="@android:drawable/ic_menu_myplaces"
+                android:drawablePadding="8dp"
+                android:background="@android:color/transparent"
+                android:padding="12dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="#EEEEEE"
+                android:layout_marginVertical="4dp"/>
+
+            <EditText
+                android:id="@+id/etDestination"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Destination"
+                android:drawableStart="@android:drawable/ic_menu_directions"
+                android:drawablePadding="8dp"
+                android:background="@android:color/transparent"
+                android:padding="12dp" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
     <!-- Map -->
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
@@ -81,6 +124,18 @@
             android:contentDescription="Zoom out" />
 
     </LinearLayout>
+
+    <Button
+        android:id="@+id/btnGetDirections"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|center_horizontal"
+        android:layout_marginBottom="100dp"
+        android:text="Directions"
+        android:visibility="gone"
+        app:icon="@android:drawable/ic_menu_directions"
+        android:backgroundTint="@color/design_default_color_primary"
+        android:textColor="@android:color/white" />
 
     <!-- My Location Button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton

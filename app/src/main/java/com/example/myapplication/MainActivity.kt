@@ -3,6 +3,10 @@ package com.example.myapplication
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.view.View
+import android.widget.Button
+import android.view.MotionEvent
+import android.view.View.OnTouchListener
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -47,6 +51,9 @@ class MainActivity : AppCompatActivity() {
     private var locationComponent: LocationComponent? = null
     private var isLocationEnabled = false
 
+    private var startPoint: LatLng? = null
+    private var destinationPoint: LatLng? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -58,6 +65,23 @@ class MainActivity : AppCompatActivity() {
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
+
+        // Inside onCreate, after setContentView(rootView)
+        val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+        val directionsPanel = findViewById<CardView>(R.id.directionsPanel)
+        val etOrigin = findViewById<EditText>(R.id.etOrigin)
+        val etDestination = findViewById<EditText>(R.id.etDestination)
+
+        btnGetDirections.setOnClickListener {
+            val searchBar = findViewById<CardView>(R.id.searchBar)
+            searchBar.visibility = View.GONE
+            btnGetDirections.visibility = View.GONE
+            directionsPanel.visibility = View.VISIBLE
+        }
+
+        etOrigin.setOnClickListener {
+            checkLocationAndFillOrigin(etOrigin)
+        }
 
 
         // Apply window insets to search bar
@@ -191,12 +215,27 @@ class MainActivity : AppCompatActivity() {
                     btnSearch.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                     btnSearch.tag = "clear"
 
-                    // 3. Hide Keyboard
+                    // 3. DirectionMode
+                    val latLng = LatLng(lat, lon)
+                    destinationPoint = latLng // Store for the bus route math later
+
+                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0), 1000)
+
+                    // Show the Directions button
+                    val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+                    btnGetDirections.visibility = View.VISIBLE
+
+                    // Pre-fill the destination in the hidden panel
+                    findViewById<EditText>(R.id.etDestination).setText(displayName)
+
+                    }
+
+                    // 4. Hide Keyboard
                     val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
                     imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
 
                     Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
-                }
+
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -238,6 +277,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+    private fun checkLocationAndFillOrigin(editText: EditText) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+
+            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 2001)
+        } else {
+            val lastLoc = mapLibreMap.locationComponent.lastKnownLocation
+            if (lastLoc != null) {
+                editText.setText("My Location")
+                startPoint = LatLng(lastLoc.latitude, lastLoc.longitude)
+            } else {
+                Toast.makeText(this, "Determining your location...", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
 
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun enableLocation(style: Style) {
@@ -270,12 +325,25 @@ class MainActivity : AppCompatActivity() {
         ) {
             mapLibreMap.style?.let { enableLocation(it) }
         }
+
+        if (requestCode == 2001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            checkLocationAndFillOrigin(findViewById(R.id.etOrigin))
+        }
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        mapView.onSaveInstanceState(outState)
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }
     override fun onResume() { super.onResume(); mapView.onResume() }
     override fun onPause() { super.onPause(); mapView.onPause() }
-    override fun onStop() { super.onStop(); mapView.onStop() }
+    override fun onStop() { super.onStop(); mapView.onStop()
+            super.onStop()
+            locationComponent?.onStop()
+            mapView.onStop()
+
+    }
     override fun onDestroy() { super.onDestroy(); mapView.onDestroy() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
 }
