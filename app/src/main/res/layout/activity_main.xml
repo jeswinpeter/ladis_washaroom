@@ -9,7 +9,7 @@
         android:id="@+id/directionsPanel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_margin="18dp"
         android:visibility="gone"
         app:cardCornerRadius="12dp"
         app:cardElevation="8dp">
@@ -20,15 +20,59 @@
             android:orientation="vertical"
             android:padding="12dp">
 
-            <EditText
-                android:id="@+id/etOrigin"
+            <!-- Add header with close button -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Current Location"
-                android:drawableStart="@android:drawable/ic_menu_myplaces"
-                android:drawablePadding="8dp"
-                android:background="@android:color/transparent"
-                android:padding="12dp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:layout_marginBottom="8dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Get Directions"
+                    android:textSize="16sp"
+                    android:textStyle="bold"/>
+
+                <ImageButton
+                    android:id="@+id/btnCloseDirections"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:src="@android:drawable/ic_menu_close_clear_cancel"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Close"/>
+            </LinearLayout>
+
+            <!-- Origin with search button -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/etOrigin"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Enter origin location"
+                    android:drawableStart="@android:drawable/ic_menu_myplaces"
+                    android:drawablePadding="8dp"
+                    android:background="@android:color/transparent"
+                    android:padding="12dp"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"/>
+
+                <ImageButton
+                    android:id="@+id/btnSearchOrigin"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_menu_search"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Search origin"
+                    android:tag="search"/>
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
@@ -36,17 +80,50 @@
                 android:background="#EEEEEE"
                 android:layout_marginVertical="4dp"/>
 
-            <EditText
-                android:id="@+id/etDestination"
+            <!-- Destination with search button -->
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Destination"
-                android:drawableStart="@android:drawable/ic_menu_directions"
-                android:drawablePadding="8dp"
-                android:background="@android:color/transparent"
-                android:padding="12dp" />
+                android:orientation="horizontal">
+
+                <EditText
+                    android:id="@+id/etDestination"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:hint="Enter destination"
+                    android:drawableStart="@android:drawable/ic_menu_directions"
+                    android:drawablePadding="8dp"
+                    android:background="@android:color/transparent"
+                    android:padding="12dp"
+                    android:imeOptions="actionSearch"
+                    android:inputType="text"
+                    android:enabled="false"/>
+
+                <ImageButton
+                    android:id="@+id/btnSearchDestination"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:src="@android:drawable/ic_menu_search"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Search destination"
+                    android:tag="search"
+                    android:enabled="false"/>
+            </LinearLayout>
+
+            <!-- Calculate Route Button -->
+            <Button
+                android:id="@+id/btnCalculateRoute"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="Calculate Route"
+                android:enabled="false"
+                app:icon="@android:drawable/ic_menu_directions"/>
+
         </LinearLayout>
     </androidx.cardview.widget.CardView>
+
 
     <!-- Map -->
     <org.maplibre.android.maps.MapView

@@ -54,6 +54,17 @@ class MainActivity : AppCompatActivity() {
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
 
+    private var originSearched = false
+    private var destinationSearched = false
+
+
+    enum class SearchType {
+        MAIN,
+        ORIGIN,
+        DESTINATION
+    }
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -69,19 +80,27 @@ class MainActivity : AppCompatActivity() {
         // Inside onCreate, after setContentView(rootView)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val directionsPanel = findViewById<CardView>(R.id.directionsPanel)
+        val btnSearchOrigin = findViewById<ImageButton>(R.id.btnSearchOrigin)
+        val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
         val etDestination = findViewById<EditText>(R.id.etDestination)
+        val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
+        val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
+        val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
+        val btnCloseDirections = findViewById<ImageButton>(R.id.btnCloseDirections)
 
         btnGetDirections.setOnClickListener {
             val searchBar = findViewById<CardView>(R.id.searchBar)
             searchBar.visibility = View.GONE
             btnGetDirections.visibility = View.GONE
             directionsPanel.visibility = View.VISIBLE
+            searchEditText.text.clear()
+            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+            btnSearch.tag = "search"
         }
 
-        etOrigin.setOnClickListener {
-            checkLocationAndFillOrigin(etOrigin)
-        }
 
 
         // Apply window insets to search bar
@@ -111,10 +130,7 @@ class MainActivity : AppCompatActivity() {
             }
 
 
-            val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
-            val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
-            val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
-            val searchEditText = findViewById<EditText>(R.id.searchEditText)
+
 
 
             // Zoom in button
@@ -133,7 +149,7 @@ class MainActivity : AppCompatActivity() {
                 val query = searchEditText.text.toString()
                 if (btnSearch.tag == "search") {
                     if (query.isNotBlank()) {
-                        searchLocation(query, map)
+                        searchLocation(query, map, searchEditText, btnSearch, SearchType.MAIN)
                     } else {
                         Toast.makeText(this, "Enter a location", Toast.LENGTH_SHORT).show()
                     }
@@ -142,6 +158,8 @@ class MainActivity : AppCompatActivity() {
                     searchEditText.text.clear()
                     btnSearch.setImageResource(android.R.drawable.ic_menu_search)
                     btnSearch.tag = "search"
+                    findViewById<Button>(R.id.btnGetDirections).visibility = View.GONE
+                    destinationPoint = null
                 }
             }
 
@@ -150,25 +168,107 @@ class MainActivity : AppCompatActivity() {
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     val query = searchEditText.text.toString()
                     if (query.isNotBlank()) {
-                        searchLocation(query, map)
+                        searchLocation(query, map, searchEditText, btnSearch, SearchType.MAIN)
                     }
                     true
                 } else {
                     false
                 }
             }
+
+            // Origin search button
+            btnSearchOrigin.setOnClickListener {
+                val query = etOrigin.text.toString()
+                if (btnSearchOrigin.tag == "search") {
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map, etOrigin, btnSearchOrigin, SearchType.ORIGIN)
+                    } else {
+                        Toast.makeText(this, "Enter origin location", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    // Clear origin
+                    etOrigin.text.clear()
+                    etOrigin.isEnabled = true
+                    btnSearchOrigin.setImageResource(android.R.drawable.ic_menu_search)
+                    btnSearchOrigin.tag = "search"
+                    startPoint = null
+                    originSearched = false
+                    updateCalculateButtonState()
+                }
+            }
+
+// Origin keyboard search
+            etOrigin.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    val query = etOrigin.text.toString()
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map, etOrigin, btnSearchOrigin, SearchType.ORIGIN)
+                    }
+                    true
+                } else false
+            }
+
+// Destination search button
+            btnSearchDestination.setOnClickListener {
+                val query = etDestination.text.toString()
+                if (btnSearchDestination.tag == "search") {
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map, etDestination, btnSearchDestination, SearchType.DESTINATION)
+                    } else {
+                        Toast.makeText(this, "Enter destination", Toast.LENGTH_SHORT).show()
+                    }
+                } else {
+                    // Clear destination
+                    etDestination.text.clear()
+                    etDestination.isEnabled = true
+                    btnSearchDestination.setImageResource(android.R.drawable.ic_menu_search)
+                    btnSearchDestination.tag = "search"
+                    destinationPoint = null
+                    destinationSearched = false
+                    updateCalculateButtonState()
+                }
+            }
+
+// Destination keyboard search
+            etDestination.setOnEditorActionListener { _, actionId, _ ->
+                if (actionId == EditorInfo.IME_ACTION_SEARCH) {
+                    val query = etDestination.text.toString()
+                    if (query.isNotBlank()) {
+                        searchLocation(query, map, etDestination, btnSearchDestination, SearchType.DESTINATION)
+                    }
+                    true
+                } else false
+            }
+
+// Calculate route button
+            btnCalculateRoute.setOnClickListener {
+                if (startPoint != null && destinationPoint != null) {
+                    calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
+                }
+            }
+
+// Close directions button
+            btnCloseDirections.setOnClickListener {
+                resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
+                    btnSearchOrigin, btnSearchDestination, btnCalculateRoute)
+            }
         }
     }
 
     // Search function using Nominatim
     //Switch to MapTiler geocoding or Photon for release
-    private fun searchLocation(query: String, map: org.maplibre.android.maps.MapLibreMap) {
+    private fun searchLocation(query: String,
+                               map: org.maplibre.android.maps.MapLibreMap,
+                               editText: EditText? = null,
+                               searchButton: ImageButton? = null,
+                               searchType: SearchType = SearchType.MAIN) {
         val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
         val searchEditText = findViewById<EditText>(R.id.searchEditText)
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+                val url =
+                    "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = 5000 // 5 seconds
@@ -189,7 +289,8 @@ class MainActivity : AppCompatActivity() {
                 // Check if empty results
                 if (response == "[]") {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT)
+                            .show()
                     }
                     return@launch
                 }
@@ -205,45 +306,90 @@ class MainActivity : AppCompatActivity() {
 
                 // Update UI on main thread
                 withContext(Dispatchers.Main) {
+
+                    val latLng = LatLng(lat, lon)
                     // Move camera to location
                     map.animateCamera(
                         CameraUpdateFactory.newLatLngZoom(LatLng(lat, lon), 15.0),
                         1000  // 1 second animation
                     )
 
-                    // 2. Change Icon to X (Clear)
-                    btnSearch.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                    // Determine which button and text field to update
+                    val buttonToUpdate = searchButton ?: btnSearch
+                    val textToUpdate = editText ?: searchEditText
+
+                    // Change Icon to X (Clear)
+                    buttonToUpdate.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
                     btnSearch.tag = "clear"
 
-                    // 3. DirectionMode
-                    val latLng = LatLng(lat, lon)
-                    destinationPoint = latLng // Store for the bus route math later
+                    // Hide Keyboard
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
+                            as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(textToUpdate.windowToken, 0)
 
-                    map.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng, 15.0), 1000)
+                    // Handle based on search type
+                    when (searchType) {
+                        SearchType.MAIN -> {
+                            destinationPoint = latLng
 
-                    // Show the Directions button
-                    val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
-                    btnGetDirections.visibility = View.VISIBLE
+                            // Show the Directions button
+                            val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+                            btnGetDirections.visibility = View.VISIBLE
 
-                    // Pre-fill the destination in the hidden panel
-                    findViewById<EditText>(R.id.etDestination).setText(displayName)
+                            // Pre-fill the destination in the hidden panel
+                            findViewById<EditText>(R.id.etDestination).setText(displayName)
 
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Found: $displayName",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+
+                        SearchType.ORIGIN -> {
+                            startPoint = latLng
+                            originSearched = true
+                            textToUpdate.isEnabled = false
+
+                            // Enable destination field
+                            val etDest = findViewById<EditText>(R.id.etDestination)
+                            val btnSearchDest = findViewById<ImageButton>(R.id.btnSearchDestination)
+                            etDest.isEnabled = true
+                            btnSearchDest.isEnabled = true
+                            etDest.requestFocus()
+
+                            updateCalculateButtonState()
+                            Toast.makeText(this@MainActivity, "Origin set", Toast.LENGTH_SHORT)
+                                .show()
+                        }
+
+                        SearchType.DESTINATION -> {
+                            destinationPoint = latLng
+                            destinationSearched = true
+                            textToUpdate.isEnabled = false
+
+                            updateCalculateButtonState()
+                            Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
+                                .show()
+
+
+                        }
                     }
-
-                    // 4. Hide Keyboard
-                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
-
-                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
-
-
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
+
+                    catch(e: Exception) {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@MainActivity,
+                                "Search failed: ${e.localizedMessage}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
         }
     }
+
 
 
 
@@ -277,20 +423,49 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-    private fun checkLocationAndFillOrigin(editText: EditText) {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
-            != PackageManager.PERMISSION_GRANTED) {
+    private fun updateCalculateButtonState() {
+        val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
+        btnCalculateRoute.isEnabled = originSearched && destinationSearched
+    }
 
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), 2001)
-        } else {
-            val lastLoc = mapLibreMap.locationComponent.lastKnownLocation
-            if (lastLoc != null) {
-                editText.setText("My Location")
-                startPoint = LatLng(lastLoc.latitude, lastLoc.longitude)
-            } else {
-                Toast.makeText(this, "Determining your location...", Toast.LENGTH_SHORT).show()
-            }
-        }
+    private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
+        Toast.makeText(
+            this,
+            "Calculating route from (${origin.latitude}, ${origin.longitude}) to (${destination.latitude}, ${destination.longitude})",
+            Toast.LENGTH_LONG
+        ).show()
+        // TODO: Implement OSRM routing here
+    }
+
+    private fun resetDirectionsPanel(
+        directionsPanel: CardView,
+        searchBar: CardView,
+        etOrigin: EditText,
+        etDestination: EditText,
+        btnSearchOrigin: ImageButton,
+        btnSearchDestination: ImageButton,
+        btnCalculateRoute: Button
+    ) {
+        directionsPanel.visibility = View.GONE
+        searchBar.visibility = View.VISIBLE
+
+        etOrigin.text.clear()
+        etDestination.text.clear()
+        etOrigin.isEnabled = true
+        etDestination.isEnabled = false
+
+        btnSearchOrigin.setImageResource(android.R.drawable.ic_menu_search)
+        btnSearchOrigin.tag = "search"
+        btnSearchDestination.setImageResource(android.R.drawable.ic_menu_search)
+        btnSearchDestination.tag = "search"
+        btnSearchDestination.isEnabled = false
+
+        btnCalculateRoute.isEnabled = false
+
+        startPoint = null
+        destinationPoint = null
+        originSearched = false
+        destinationSearched = false
     }
 
 
@@ -326,9 +501,6 @@ class MainActivity : AppCompatActivity() {
             mapLibreMap.style?.let { enableLocation(it) }
         }
 
-        if (requestCode == 2001 && grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            checkLocationAndFillOrigin(findViewById(R.id.etOrigin))
-        }
     }
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
