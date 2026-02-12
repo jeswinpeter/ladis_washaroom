@@ -75,9 +75,8 @@ class MainActivity : AppCompatActivity() {
         mapView.getMapAsync { map ->
             this.mapLibreMap = map
 
-            // Changing map style
-            val styleURL = "https://tiles.openfreemap.org/styles/liberty"
-            map.setStyle(styleURL)
+            // Setting default map style
+            map.setStyle("https://tiles.openfreemap.org/styles/bright")
 
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
@@ -95,6 +94,8 @@ class MainActivity : AppCompatActivity() {
             val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
             val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
             val searchEditText = findViewById<EditText>(R.id.searchEditText)
+            val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
+
 
 
             // Zoom in button
@@ -106,6 +107,12 @@ class MainActivity : AppCompatActivity() {
             btnZoomOut.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomOut())
             }
+
+            // Change style button
+            btnChangeStyle.setOnClickListener {
+                toggleMapStyle()
+            }
+
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
             // Search button click
@@ -124,6 +131,8 @@ class MainActivity : AppCompatActivity() {
                     btnSearch.tag = "search"
                 }
             }
+
+
 
             // Search on keyboard "Search" button
             searchEditText.setOnEditorActionListener { _, actionId, _ ->
@@ -242,7 +251,21 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+// Map style changing
+    private val styles = listOf(
+        "https://tiles.openfreemap.org/styles/bright",
+        "https://tiles.openfreemap.org/styles/liberty",
+        "https://demotiles.maplibre.org/style.json"
+    )
 
+    private var styleIndex = 0
+
+    private fun toggleMapStyle() {
+        styleIndex = (styleIndex + 1) % styles.size
+        mapLibreMap.setStyle(styles[styleIndex])
+    }
+
+// Location activation
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun enableLocation(style: Style) {
         val locationComponent = mapLibreMap.locationComponent

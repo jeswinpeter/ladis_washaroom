@@ -82,14 +82,41 @@
 
     </LinearLayout>
 
-    <!-- My Location Button -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/btnMyLocation"
+<!--    &lt;!&ndash; My Location Button &ndash;&gt;-->
+<!--    <com.google.android.material.floatingactionbutton.FloatingActionButton-->
+<!--        android:id="@+id/btnMyLocation"-->
+<!--        android:layout_width="wrap_content"-->
+<!--        android:layout_height="wrap_content"-->
+<!--        android:layout_gravity="bottom|end"-->
+<!--        android:layout_margin="16dp"-->
+<!--        android:contentDescription="My Location"-->
+<!--        android:src="@android:drawable/ic_menu_mylocation" />-->
+
+    <LinearLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        android:contentDescription="My Location"
-        android:src="@android:drawable/ic_menu_mylocation" />
+        android:orientation="vertical"
+        android:gravity="end">
+
+        <!-- Style Button (NEW) -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnChangeStyle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Change Style"
+            android:src="@android:drawable/ic_menu_mapmode" />
+
+        <!-- My Location Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnMyLocation"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:contentDescription="My Location"
+            android:src="@android:drawable/ic_menu_mylocation" />
+
+    </LinearLayout>
 
 </FrameLayout>
