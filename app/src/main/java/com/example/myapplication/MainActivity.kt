@@ -121,7 +121,10 @@ class MainActivity : AppCompatActivity() {
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
             this.mapLibreMap = map
-            map.setStyle("https://demotiles.maplibre.org/style.json")
+
+            // Setting default map style
+            map.setStyle("https://tiles.openfreemap.org/styles/bright")
+
             map.cameraPosition = CameraPosition.Builder().target(LatLng(8.5,76.9)).zoom(5.0).build()
             val uiSettings = map.uiSettings
             uiSettings.isZoomGesturesEnabled = true        // pinch zoom
@@ -134,6 +137,11 @@ class MainActivity : AppCompatActivity() {
             }
 
 
+            val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
+            val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
+            val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+            val searchEditText = findViewById<EditText>(R.id.searchEditText)
+            val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
 
 
 
@@ -146,6 +154,12 @@ class MainActivity : AppCompatActivity() {
             btnZoomOut.setOnClickListener {
                 map.animateCamera(CameraUpdateFactory.zoomOut())
             }
+
+            // Change style button
+            btnChangeStyle.setOnClickListener {
+                toggleMapStyle()
+            }
+
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
             // Search button click
@@ -166,6 +180,8 @@ class MainActivity : AppCompatActivity() {
                     destinationPoint = null
                 }
             }
+
+
 
             // Search on keyboard "Search" button
             searchEditText.setOnEditorActionListener { _, actionId, _ ->
@@ -271,8 +287,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url =
-                    "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = 5000 // 5 seconds
@@ -293,8 +308,7 @@ class MainActivity : AppCompatActivity() {
                 // Check if empty results
                 if (response == "[]") {
                     withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT)
-                            .show()
+                        Toast.makeText(this@MainActivity, "No results found", Toast.LENGTH_SHORT).show()
                     }
                     return@launch
                 }
@@ -374,6 +388,9 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
                                 .show()
 
+                    // 3. Hide Keyboard
+                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
 
                         }
                     }
@@ -472,7 +489,21 @@ class MainActivity : AppCompatActivity() {
         destinationSearched = false
     }
 
+// Map style changing
+    private val styles = listOf(
+        "https://tiles.openfreemap.org/styles/bright",
+        "https://tiles.openfreemap.org/styles/liberty",
+        "https://demotiles.maplibre.org/style.json"
+    )
 
+    private var styleIndex = 0
+
+    private fun toggleMapStyle() {
+        styleIndex = (styleIndex + 1) % styles.size
+        mapLibreMap.setStyle(styles[styleIndex])
+    }
+
+// Location activation
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun enableLocation(style: Style) {
         val locationComponent = mapLibreMap.locationComponent
