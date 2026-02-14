@@ -3,6 +3,7 @@ package com.example.myapplication
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.text.Layout
 import android.view.View
 import android.widget.Button
 import android.view.MotionEvent
@@ -23,6 +24,7 @@ import android.widget.EditText
 import android.widget.FrameLayout
 import androidx.cardview.widget.CardView
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
@@ -89,12 +91,14 @@ class MainActivity : AppCompatActivity() {
         val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
         val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
-        val btnCloseDirections = findViewById<ImageButton>(R.id.btnCloseDirections)
+        val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
+        val btnClose = findViewById<ImageButton>(R.id.btnClose)
 
         btnGetDirections.setOnClickListener {
             val searchBar = findViewById<CardView>(R.id.searchBar)
             searchBar.visibility = View.GONE
             btnGetDirections.visibility = View.GONE
+            closeDirections.visibility= View.VISIBLE
             directionsPanel.visibility = View.VISIBLE
             searchEditText.text.clear()
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
@@ -248,7 +252,7 @@ class MainActivity : AppCompatActivity() {
             }
 
 // Close directions button
-            btnCloseDirections.setOnClickListener {
+            btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
                     btnSearchOrigin, btnSearchDestination, btnCalculateRoute)
             }
@@ -320,7 +324,7 @@ class MainActivity : AppCompatActivity() {
 
                     // Change Icon to X (Clear)
                     buttonToUpdate.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
-                    btnSearch.tag = "clear"
+                    buttonToUpdate.tag = "clear"
 
                     // Hide Keyboard
                     val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
@@ -349,7 +353,6 @@ class MainActivity : AppCompatActivity() {
                         SearchType.ORIGIN -> {
                             startPoint = latLng
                             originSearched = true
-                            textToUpdate.isEnabled = false
 
                             // Enable destination field
                             val etDest = findViewById<EditText>(R.id.etDestination)
@@ -366,7 +369,6 @@ class MainActivity : AppCompatActivity() {
                         SearchType.DESTINATION -> {
                             destinationPoint = latLng
                             destinationSearched = true
-                            textToUpdate.isEnabled = false
 
                             updateCalculateButtonState()
                             Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
@@ -445,7 +447,9 @@ class MainActivity : AppCompatActivity() {
         btnSearchOrigin: ImageButton,
         btnSearchDestination: ImageButton,
         btnCalculateRoute: Button
+
     ) {
+
         directionsPanel.visibility = View.GONE
         searchBar.visibility = View.VISIBLE
 

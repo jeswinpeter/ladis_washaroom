@@ -7,10 +7,11 @@
 
     <androidx.cardview.widget.CardView
         android:id="@+id/directionsPanel"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:layout_width="250dp"
+        android:layout_height="200dp"
+        android:layout_gravity="top|center_horizontal"
         android:layout_margin="18dp"
-        android:visibility="gone"
+        android:visibility="invisible"
         app:cardCornerRadius="12dp"
         app:cardElevation="8dp">
 
@@ -21,29 +22,6 @@
             android:padding="12dp">
 
             <!-- Add header with close button -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:layout_marginBottom="8dp">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Get Directions"
-                    android:textSize="16sp"
-                    android:textStyle="bold"/>
-
-                <ImageButton
-                    android:id="@+id/btnCloseDirections"
-                    android:layout_width="32dp"
-                    android:layout_height="32dp"
-                    android:src="@android:drawable/ic_menu_close_clear_cancel"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Close"/>
-            </LinearLayout>
 
             <!-- Origin with search button -->
             <LinearLayout
@@ -56,29 +34,29 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="Enter origin location"
+                    android:background="@android:color/transparent"
                     android:drawableStart="@android:drawable/ic_menu_myplaces"
                     android:drawablePadding="8dp"
-                    android:background="@android:color/transparent"
-                    android:padding="12dp"
+                    android:hint="Origin"
                     android:imeOptions="actionSearch"
-                    android:inputType="text"/>
+                    android:inputType="text"
+                    android:padding="12dp" />
 
                 <ImageButton
                     android:id="@+id/btnSearchOrigin"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:src="@android:drawable/ic_menu_search"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Search origin"
-                    android:tag="search"/>
+                    android:src="@android:drawable/ic_menu_search"
+                    android:tag="search" />
             </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
                 android:layout_height="1dp"
-                android:background="#EEEEEE"
-                android:layout_marginVertical="4dp"/>
+                android:layout_marginVertical="4dp"
+                android:background="#EEEEEE" />
 
             <!-- Destination with search button -->
             <LinearLayout
@@ -91,24 +69,24 @@
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_weight="1"
-                    android:hint="Enter destination"
+                    android:background="@android:color/transparent"
                     android:drawableStart="@android:drawable/ic_menu_directions"
                     android:drawablePadding="8dp"
-                    android:background="@android:color/transparent"
-                    android:padding="12dp"
+                    android:enabled="false"
+                    android:hint="Destination"
                     android:imeOptions="actionSearch"
                     android:inputType="text"
-                    android:enabled="false"/>
+                    android:padding="12dp" />
 
                 <ImageButton
                     android:id="@+id/btnSearchDestination"
                     android:layout_width="48dp"
                     android:layout_height="48dp"
-                    android:src="@android:drawable/ic_menu_search"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="Search destination"
-                    android:tag="search"
-                    android:enabled="false"/>
+                    android:enabled="false"
+                    android:src="@android:drawable/ic_menu_search"
+                    android:tag="search" />
             </LinearLayout>
 
             <!-- Calculate Route Button -->
@@ -117,24 +95,25 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:text="Calculate Route"
                 android:enabled="false"
-                app:icon="@android:drawable/ic_menu_directions"/>
+                android:text="Calculate Route"
+                app:icon="@android:drawable/ic_menu_directions" />
 
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
 
     <!-- Map -->
+
+    <!-- Search Bar (top) -->
     <org.maplibre.android.maps.MapView
         android:id="@+id/mapView"
         android:layout_width="match_parent"
         android:layout_height="match_parent" />
 
-    <!-- Search Bar (top) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/searchBar"
-        android:layout_width="300dp"
+        android:layout_width="250dp"
         android:layout_height="wrap_content"
         android:layout_margin="18dp"
         android:layout_gravity="top|center_horizontal"
@@ -169,6 +148,30 @@
         </LinearLayout>
 
     </androidx.cardview.widget.CardView>
+
+    <LinearLayout
+        android:id="@+id/btnCloseDirections"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|start"
+        android:layout_marginStart="16dp"
+        android:layout_marginTop="18dp"
+        android:background="@android:color/white"
+        android:elevation="2dp"
+        android:orientation="horizontal"
+        android:padding="4dp"
+        android:visibility="invisible">
+
+        <ImageButton
+            android:id="@+id/btnClose"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Zoom in"
+            android:scaleType="centerInside"
+            android:src="@android:drawable/ic_menu_revert" />
+
+    </LinearLayout>
 
     <!-- Zoom Controls (top left) -->
     <LinearLayout
@@ -208,11 +211,11 @@
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|center_horizontal"
         android:layout_marginBottom="100dp"
+        android:backgroundTint="@color/Blue"
         android:text="Directions"
-        android:visibility="gone"
-        app:icon="@android:drawable/ic_menu_directions"
-        android:backgroundTint="@color/design_default_color_primary"
-        android:textColor="@android:color/white" />
+        android:textColor="@android:color/white"
+        android:visibility="invisible"
+        app:icon="@android:drawable/ic_menu_directions" />
 
     <!-- My Location Button -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
