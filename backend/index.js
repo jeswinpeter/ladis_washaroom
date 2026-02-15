@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 require('dotenv').config();
+const startSimulation = require('./simulate');
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -57,6 +58,9 @@ app.post('/api/sos', async (req, res) => {
   // In a real app, this would trigger SMS/Email via Twilio/SendGrid
   res.json({ status: 'success', message: 'Emergency contacts notified' });
 });
+
+// Start the background simulation
+startSimulation();
 
 // Start Server
 app.listen(port, () => {
