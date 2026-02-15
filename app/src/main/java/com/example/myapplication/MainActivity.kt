@@ -270,7 +270,7 @@ class MainActivity : AppCompatActivity() {
 // Close directions button
             btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
-                    btnSearchOrigin, btnSearchDestination, btnCalculateRoute)
+                    btnSearchOrigin, btnSearchDestination, btnCalculateRoute, closeDirections)
             }
         }
     }
@@ -463,12 +463,15 @@ class MainActivity : AppCompatActivity() {
         etDestination: EditText,
         btnSearchOrigin: ImageButton,
         btnSearchDestination: ImageButton,
-        btnCalculateRoute: Button
+        btnCalculateRoute: Button,
+        closeDirections: LinearLayout
+
 
     ) {
 
         directionsPanel.visibility = View.GONE
         searchBar.visibility = View.VISIBLE
+        closeDirections.visibility = View.GONE
 
         etOrigin.text.clear()
         etDestination.text.clear()
