@@ -1,13 +1,11 @@
 package com.example.myapplication
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.text.Layout
 import android.view.View
 import android.widget.Button
-import android.view.MotionEvent
-import android.view.View.OnTouchListener
 import androidx.annotation.RequiresPermission
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -63,6 +61,8 @@ class MainActivity : AppCompatActivity() {
     private var originSearched = false
     private var destinationSearched = false
 
+
+    @SuppressLint("MissingPermission")
     private val locationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
@@ -463,7 +463,7 @@ class MainActivity : AppCompatActivity() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         btnCalculateRoute.isEnabled = originSearched && destinationSearched
     }
-
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun checkLocationSettings() {
         val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
         val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
