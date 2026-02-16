@@ -61,10 +61,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapLibreMap: MapLibreMap
     private var locationComponent: LocationComponent? = null
     private var isLocationEnabled = false
-
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
-
     private var originSearched = false
     private var destinationSearched = false
 
@@ -100,34 +98,18 @@ class MainActivity : AppCompatActivity() {
         val inflater = LayoutInflater.from(this)
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
-        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
 
         // Inside onCreate, after setContentView(rootView)
+        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val directionsPanel = findViewById<CardView>(R.id.directionsPanel)
         val btnSearchOrigin = findViewById<ImageButton>(R.id.btnSearchOrigin)
         val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
         val etDestination = findViewById<EditText>(R.id.etDestination)
-        val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
-        val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
-        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
-        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
-
-        btnGetDirections.setOnClickListener {
-            val searchBar = findViewById<CardView>(R.id.searchBar)
-            searchBar.visibility = View.GONE
-            btnGetDirections.visibility = View.GONE
-            closeDirections.visibility= View.VISIBLE
-            directionsPanel.visibility = View.VISIBLE
-            searchEditText.text.clear()
-            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
-            btnSearch.tag = "search"
-        }
-
 
 
         // Apply window insets to search bar
@@ -167,6 +149,17 @@ class MainActivity : AppCompatActivity() {
             val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
 
 
+            btnGetDirections.setOnClickListener {
+                val searchBar = findViewById<CardView>(R.id.searchBar)
+                searchBar.visibility = View.GONE
+                btnGetDirections.visibility = View.GONE
+                closeDirections.visibility= View.VISIBLE
+                directionsPanel.visibility = View.VISIBLE
+                searchEditText.text.clear()
+                btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+                btnSearch.tag = "search"
+            }
+
 
             // Zoom in button
             btnZoomIn.setOnClickListener {
@@ -205,7 +198,6 @@ class MainActivity : AppCompatActivity() {
             }
 
 
-
             // Search on keyboard "Search" button
             searchEditText.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -240,7 +232,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-// Origin keyboard search
+            // Origin keyboard search
             etOrigin.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     val query = etOrigin.text.toString()
@@ -251,7 +243,7 @@ class MainActivity : AppCompatActivity() {
                 } else false
             }
 
-// Destination search button
+            // Destination search button
             btnSearchDestination.setOnClickListener {
                 val query = etDestination.text.toString()
                 if (btnSearchDestination.tag == "search") {
@@ -272,7 +264,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-// Destination keyboard search
+            // Destination keyboard search
             etDestination.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     val query = etDestination.text.toString()
@@ -283,14 +275,14 @@ class MainActivity : AppCompatActivity() {
                 } else false
             }
 
-// Calculate route button
+            // Calculate route button
             btnCalculateRoute.setOnClickListener {
                 if (startPoint != null && destinationPoint != null) {
                     calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
                 }
             }
 
-// Close directions button
+            // Close directions button
             btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
                     btnSearchOrigin, btnSearchDestination, btnCalculateRoute, closeDirections)
@@ -380,6 +372,22 @@ class MainActivity : AppCompatActivity() {
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
 
+                            fetchWikipediaSummary(displayName) { wikiSummary ->
+
+                                val fragment = PlaceDetailsFragment()
+
+                                val bundle = Bundle().apply {
+                                    putString("name", displayName)
+                                    putString("address", displayName)
+                                    putDouble("lat", lat)
+                                    putDouble("lon", lon)
+                                    putString("wiki", wikiSummary)
+                                }
+
+                                fragment.arguments = bundle
+                                fragment.show(supportFragmentManager, "PlaceDetails")
+                            }
+
                             Toast.makeText(
                                 this@MainActivity,
                                 "Found: $displayName",
@@ -411,50 +419,31 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
                                 .show()
 
-                    // 3. Hide Keyboard
-                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                        // 3. Hide Keyboard
+                        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
 
-                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
+                    }
                 }
             }
-        }
-
-                fetchWikipediaSummary(displayName) { wikiSummary ->
-
-                    val fragment = PlaceDetailsFragment()
-
-                    val bundle = Bundle().apply {
-                        putString("name", displayName)
-                        putString("address", displayName)
-                        putDouble("lat", lat)
-                        putDouble("lon", lon)
-                        putString("wiki", wikiSummary)
-                    }
-
-                    fragment.arguments = bundle
-                    fragment.show(supportFragmentManager, "PlaceDetails")
-                }
-
-
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
                 }
             }
-                    catch(e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Search failed: ${e.localizedMessage}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
+            catch(e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Search failed: ${e.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
     }
-
 
 
     private fun handleMyLocationClick() {
@@ -487,6 +476,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
     // Wikipedia summary call function
     private fun fetchWikipediaSummary(
         placeName: String,
@@ -576,14 +566,10 @@ class MainActivity : AppCompatActivity() {
         btnSearchDestination: ImageButton,
         btnCalculateRoute: Button,
         closeDirections: LinearLayout
-
-
     ) {
-
         directionsPanel.visibility = View.GONE
         searchBar.visibility = View.VISIBLE
         closeDirections.visibility = View.GONE
-
         etOrigin.text.clear()
         etDestination.text.clear()
         etOrigin.isEnabled = true
@@ -604,7 +590,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 // Map style changing
-    private val styles = listOf(
+    private val styles = listOf(// Array for style url
         "https://tiles.openfreemap.org/styles/bright",
         "https://tiles.openfreemap.org/styles/liberty",
         "https://demotiles.maplibre.org/style.json"
