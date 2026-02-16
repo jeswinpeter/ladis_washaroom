@@ -29,16 +29,22 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONArray
+import org.json.JSONObject
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
-
+import okhttp3.Callback
 class MainActivity : AppCompatActivity() {
 
     // Declare a variable for MapView
@@ -192,6 +198,8 @@ class MainActivity : AppCompatActivity() {
                 val displayName = json.getString("display_name")
 
 
+
+
                 // Update UI on main thread
                 withContext(Dispatchers.Main) {
                     // Move camera to location
@@ -210,6 +218,24 @@ class MainActivity : AppCompatActivity() {
 
                     Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                 }
+
+                fetchWikipediaSummary(displayName) { wikiSummary ->
+
+                    val fragment = PlaceDetailsFragment()
+
+                    val bundle = Bundle().apply {
+                        putString("name", displayName)
+                        putString("address", displayName)
+                        putDouble("lat", lat)
+                        putDouble("lon", lon)
+                        putString("wiki", wikiSummary)
+                    }
+
+                    fragment.arguments = bundle
+                    fragment.show(supportFragmentManager, "PlaceDetails")
+                }
+
+
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
@@ -250,8 +276,50 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    // Wikipedia summary call function
+    private fun fetchWikipediaSummary(
+        placeName: String,
+        callback: (String?) -> Unit
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val encodedName = URLEncoder.encode(placeName, "UTF-8")
+                val url =
+                    "https://en.wikipedia.org/api/rest_v1/page/summary/$encodedName"
 
-// Map style changing
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.connect()
+
+                if (connection.responseCode != 200) {
+                    withContext(Dispatchers.Main) { callback(null) }
+                    return@launch
+                }
+
+                val response =
+                    connection.inputStream.bufferedReader().use { it.readText() }
+
+                val json = JSONObject(response)
+                val summary = json.optString("extract", null)
+
+                withContext(Dispatchers.Main) {
+                    callback(summary)
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(null)
+                }
+            }
+        }
+    }
+
+
+
+
+    // Map style changing
     private val styles = listOf(
         "https://tiles.openfreemap.org/styles/bright",
         "https://tiles.openfreemap.org/styles/liberty",
@@ -298,6 +366,8 @@ class MainActivity : AppCompatActivity() {
             mapLibreMap.style?.let { enableLocation(it) }
         }
     }
+
+
 
     override fun onStart() { super.onStart(); mapView.onStart() }
     override fun onResume() { super.onResume(); mapView.onResume() }
