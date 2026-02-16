@@ -44,6 +44,10 @@ import org.maplibre.android.maps.MapView
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.*
+import androidx.activity.result.IntentSenderRequest
+import androidx.activity.result.contract.ActivityResultContracts
 
 class MainActivity : AppCompatActivity() {
 
@@ -58,6 +62,18 @@ class MainActivity : AppCompatActivity() {
 
     private var originSearched = false
     private var destinationSearched = false
+
+    private val locationSettingsLauncher = registerForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == RESULT_OK) {
+            // User clicked "OK" - GPS is now on!
+            mapLibreMap.style?.let { enableLocation(it) }
+        } else {
+            // User clicked "No thanks"
+            Toast.makeText(this, "Location services are required for this feature.", Toast.LENGTH_SHORT).show()
+        }
+    }
 
 
     enum class SearchType {
@@ -429,6 +445,7 @@ class MainActivity : AppCompatActivity() {
             if (!isLocationEnabled) {
                 mapLibreMap.style?.let { enableLocation(it) }
             } else {
+                checkLocationSettings()
                 // SAFE CHECK: Ensure we actually have a location before forcing an update
                 val lastLoc = mapLibreMap.locationComponent.lastKnownLocation
                 if (lastLoc != null) {
@@ -445,6 +462,31 @@ class MainActivity : AppCompatActivity() {
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         btnCalculateRoute.isEnabled = originSearched && destinationSearched
+    }
+
+    private fun checkLocationSettings() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 5000).build()
+        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
+
+        val client: SettingsClient = LocationServices.getSettingsClient(this)
+        val task = client.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            // Settings are satisfied, we can enable location
+            mapLibreMap.style?.let { enableLocation(it) }
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                try {
+                    // This triggers the "one-tap" system dialog
+                    val intentSenderRequest = IntentSenderRequest.Builder(exception.resolution).build()
+                    locationSettingsLauncher.launch(intentSenderRequest)
+                } catch (sendEx: Exception) {
+                    // Ignore the error.
+                }
+            }
+        }
     }
 
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
