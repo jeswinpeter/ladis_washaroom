@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  # 1. The Database Service
+  db:
+    image: postgres:16-alpine
+    container_name: smart_travel_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: smart_travel
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # 2. Your Backend Service
+  backend:
+    build: ./backend
+    container_name: smart_travel_api
+    ports:
+      - "3001:3001"
+    environment:
+      # Notice the host is 'db', not 'localhost'
+      DATABASE_URL: postgres://postgres:postgres@db:5432/smart_travel
+      PORT: 3001
+    depends_on:
+      - db
+    restart: always
+
+volumes:
+  pgdata:
