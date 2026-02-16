@@ -30,7 +30,8 @@ const seedData = async () => {
           route_id INTEGER REFERENCES routes(id),
           current_lat DECIMAL(10, 8),
           current_lng DECIMAL(10, 8),
-          status VARCHAR(20)
+          status VARCHAR(20),
+          last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP -- <--- ADDED THIS LINE
       );
     `);
 
