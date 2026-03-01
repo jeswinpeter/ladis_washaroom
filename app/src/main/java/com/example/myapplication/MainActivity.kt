@@ -517,7 +517,32 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun callRoutesBackend(origin: LatLng, destination: LatLng) {
+        val client = OkHttpClient()
 
+        val url =
+            "http://10.0.2.2:3001/api/routes" +
+                    "?originLat=${origin.latitude}" +
+                    "&originLon=${origin.longitude}" +
+                    "&destLat=${destination.latitude}" +
+                    "&destLon=${destination.longitude}"
+
+        val request = Request.Builder()
+            .url(url)
+            .get()
+            .build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                android.util.Log.e("ROUTES_API", "Request failed", e)
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                android.util.Log.d("ROUTES_API", "Response: $body")
+            }
+        })
+    }
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         btnCalculateRoute.isEnabled = originSearched && destinationSearched
@@ -555,6 +580,8 @@ class MainActivity : AppCompatActivity() {
             Toast.LENGTH_LONG
         ).show()
         // TODO: Implement OSRM routing here
+
+        callRoutesBackend(origin, destination)
     }
 
     private fun resetDirectionsPanel(
