@@ -10,6 +10,8 @@ const port = process.env.PORT || 3001;
 
 const { getSunSide, calculateBearing } = require('./sunlogic');
 
+const { calculateFare } = require('./farelogic');
+
 // Middleware
 app.use(cors()); // Allow Android emulator to access localhost
 app.use(express.json());
@@ -112,6 +114,30 @@ app.get('/api/shade-recommendation', async (req, res) => {
     console.error(err);
     res.status(500).send('Server Error');
   }
+});
+
+// === AUTORICKSHAW FARE CALCULATOR ===
+app.post('/api/fare', (req, res) => {
+  const { 
+    distanceKm,      // Distance in kilometers (required)
+    isOneway,       // true/false (optional, default: false)
+    waitingMinutes,// Minutes (optional, default: 0)
+    startTime       // ISO string or use current time (optional)
+  } = req.body;
+
+  if (!distanceKm || distanceKm <= 0) {
+    return res.status(400).json({ error: 'Valid distance in km is required' });
+  }
+
+  const travelTime = startTime ? new Date(startTime) : new Date();
+  
+  const result = calculateFare(distanceKm, {
+    isOneway: isOneway || false,
+    waitingMinutes: waitingMinutes || 0,
+    startTime: travelTime
+  });
+
+  res.json(result);
 });
 
 // === START SERVER ===
