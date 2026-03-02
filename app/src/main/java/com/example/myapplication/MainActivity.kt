@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -94,6 +95,7 @@ class MainActivity : AppCompatActivity() {
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
+        val btnSettings = findViewById<ImageButton>(R.id.btnSettings)
 
         // Inside onCreate, after setContentView(rootView)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
@@ -120,8 +122,6 @@ class MainActivity : AppCompatActivity() {
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
         }
-
-
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
@@ -150,6 +150,10 @@ class MainActivity : AppCompatActivity() {
             btnMyLocation.setOnClickListener {
                 handleMyLocationClick()
 
+            }
+            btnSettings.setOnClickListener {
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivity(intent)
             }
 
 
