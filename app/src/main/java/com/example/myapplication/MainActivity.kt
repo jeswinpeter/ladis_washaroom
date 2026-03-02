@@ -34,15 +34,22 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.Call
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import org.json.JSONArray
+import org.json.JSONObject
 import org.maplibre.android.MapLibre
 import org.maplibre.android.camera.CameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.maps.MapView
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import okhttp3.Callback
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
@@ -55,10 +62,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mapLibreMap: MapLibreMap
     private var locationComponent: LocationComponent? = null
     private var isLocationEnabled = false
-
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
-
     private var originSearched = false
     private var destinationSearched = false
 
@@ -98,6 +103,7 @@ class MainActivity : AppCompatActivity() {
         val btnSettings = findViewById<ImageButton>(R.id.btnSettings)
 
         // Inside onCreate, after setContentView(rootView)
+        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val directionsPanel = findViewById<CardView>(R.id.directionsPanel)
         val btnSearchOrigin = findViewById<ImageButton>(R.id.btnSearchOrigin)
@@ -122,6 +128,7 @@ class MainActivity : AppCompatActivity() {
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
         }
+
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
@@ -164,6 +171,17 @@ class MainActivity : AppCompatActivity() {
             val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
 
 
+            btnGetDirections.setOnClickListener {
+                val searchBar = findViewById<CardView>(R.id.searchBar)
+                searchBar.visibility = View.GONE
+                btnGetDirections.visibility = View.GONE
+                closeDirections.visibility= View.VISIBLE
+                directionsPanel.visibility = View.VISIBLE
+                searchEditText.text.clear()
+                btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+                btnSearch.tag = "search"
+            }
+
 
             // Zoom in button
             btnZoomIn.setOnClickListener {
@@ -202,7 +220,6 @@ class MainActivity : AppCompatActivity() {
             }
 
 
-
             // Search on keyboard "Search" button
             searchEditText.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
@@ -237,7 +254,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-// Origin keyboard search
+            // Origin keyboard search
             etOrigin.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     val query = etOrigin.text.toString()
@@ -248,7 +265,7 @@ class MainActivity : AppCompatActivity() {
                 } else false
             }
 
-// Destination search button
+            // Destination search button
             btnSearchDestination.setOnClickListener {
                 val query = etDestination.text.toString()
                 if (btnSearchDestination.tag == "search") {
@@ -269,7 +286,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
 
-// Destination keyboard search
+            // Destination keyboard search
             etDestination.setOnEditorActionListener { _, actionId, _ ->
                 if (actionId == EditorInfo.IME_ACTION_SEARCH) {
                     val query = etDestination.text.toString()
@@ -280,14 +297,14 @@ class MainActivity : AppCompatActivity() {
                 } else false
             }
 
-// Calculate route button
+            // Calculate route button
             btnCalculateRoute.setOnClickListener {
                 if (startPoint != null && destinationPoint != null) {
                     calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
                 }
             }
 
-// Close directions button
+            // Close directions button
             btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
                     btnSearchOrigin, btnSearchDestination, btnCalculateRoute, closeDirections)
@@ -377,6 +394,22 @@ class MainActivity : AppCompatActivity() {
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
 
+                            fetchWikipediaSummary(displayName) { wikiSummary ->
+
+                                val fragment = PlaceDetailsFragment()
+
+                                val bundle = Bundle().apply {
+                                    putString("name", displayName)
+                                    putString("address", displayName)
+                                    putDouble("lat", lat)
+                                    putDouble("lon", lon)
+                                    putString("wiki", wikiSummary)
+                                }
+
+                                fragment.arguments = bundle
+                                fragment.show(supportFragmentManager, "PlaceDetails")
+                            }
+
                             Toast.makeText(
                                 this@MainActivity,
                                 "Found: $displayName",
@@ -408,28 +441,31 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
                                 .show()
 
-                    // 3. Hide Keyboard
-                    val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+                        // 3. Hide Keyboard
+                        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+                        imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
 
-                        }
+                        Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                     }
                 }
             }
 
-                    catch(e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Search failed: ${e.localizedMessage}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
-                    }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                }
+            }
+            catch(e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Search failed: ${e.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
         }
     }
-
-
 
 
     private fun handleMyLocationClick() {
@@ -462,6 +498,47 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+    // Wikipedia summary call function
+    private fun fetchWikipediaSummary(
+        placeName: String,
+        callback: (String?) -> Unit
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val encodedName = URLEncoder.encode(placeName, "UTF-8")
+                val url =
+                    "https://en.wikipedia.org/api/rest_v1/page/summary/$encodedName"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.connect()
+
+                if (connection.responseCode != 200) {
+                    withContext(Dispatchers.Main) { callback(null) }
+                    return@launch
+                }
+
+                val response =
+                    connection.inputStream.bufferedReader().use { it.readText() }
+
+                val json = JSONObject(response)
+                val summary = json.optString("extract", null)
+
+                withContext(Dispatchers.Main) {
+                    callback(summary)
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    callback(null)
+                }
+            }
+        }
+    }
+
 
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
@@ -539,7 +616,7 @@ class MainActivity : AppCompatActivity() {
     }
 
 // Map style changing
-    private val styles = listOf(
+    private val styles = listOf(// Array for style url
         "https://tiles.openfreemap.org/styles/bright",
         "https://tiles.openfreemap.org/styles/liberty",
         "https://demotiles.maplibre.org/style.json"
