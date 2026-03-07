@@ -4,6 +4,7 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import androidx.annotation.RequiresPermission
@@ -517,32 +518,80 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun callRoutesBackend(origin: LatLng, destination: LatLng) {
-        val client = OkHttpClient()
+    private fun fetchRouteFromOSRM(
+        origin: LatLng,
+        destination: LatLng,
+        onResult: (String) -> Unit
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url =
+                    "https://router.project-osrm.org/route/v1/driving/" +
+                            "${origin.longitude},${origin.latitude};" +
+                            "${destination.longitude},${destination.latitude}" +
+                            "?overview=full&geometries=geojson"
 
-        val url =
-            "http://10.0.2.2:3001/api/routes" +
-                    "?originLat=${origin.latitude}" +
-                    "&originLon=${origin.longitude}" +
-                    "&destLat=${destination.latitude}" +
-                    "&destLon=${destination.longitude}"
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.setRequestProperty(
+                    "User-Agent",
+                    "NavEz/1.0 (your-email@example.com)"
+                )
 
-        val request = Request.Builder()
-            .url(url)
-            .get()
-            .build()
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    throw Exception("OSRM error: $responseCode")
+                }
 
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                android.util.Log.e("ROUTES_API", "Request failed", e)
+                val response = connection.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+
+                withContext(Dispatchers.Main) {
+                    onResult(response)
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Routing failed: ${e.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
-
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string()
-                android.util.Log.d("ROUTES_API", "Response: $body")
-            }
-        })
+        }
     }
+// This portion was used to connect with backend that vasu did. It shows routes in the terminal
+// calculateAndDisplayRoute() should call this funciton for this to work
+//    private fun callRoutesBackend(origin: LatLng, destination: LatLng) {
+//        val client = OkHttpClient()
+//
+//        val url =
+//            "http://10.0.2.2:3001/api/routes" +
+//                    "?originLat=${origin.latitude}" +
+//                    "&originLon=${origin.longitude}" +
+//                    "&destLat=${destination.latitude}" +
+//                    "&destLon=${destination.longitude}"
+//
+//        val request = Request.Builder()
+//            .url(url)
+//            .get()
+//            .build()
+//
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                android.util.Log.e("ROUTES_API", "Request failed", e)
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                val body = response.body?.string()
+//                android.util.Log.d("ROUTES_API", "Response: $body")
+//            }
+//        })
+//    }
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         btnCalculateRoute.isEnabled = originSearched && destinationSearched
@@ -574,14 +623,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
-        Toast.makeText(
-            this,
-            "Calculating route from (${origin.latitude}, ${origin.longitude}) to (${destination.latitude}, ${destination.longitude})",
-            Toast.LENGTH_LONG
-        ).show()
-        // TODO: Implement OSRM routing here
-
-        callRoutesBackend(origin, destination)
+        fetchRouteFromOSRM(origin, destination) { response ->
+            Toast.makeText(this, "Route received!", Toast.LENGTH_SHORT).show()
+            Log.d("OSRM_RESPONSE", response)
+        }
     }
 
     private fun resetDirectionsPanel(
