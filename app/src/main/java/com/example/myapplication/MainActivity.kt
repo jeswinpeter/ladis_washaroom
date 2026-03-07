@@ -2,6 +2,7 @@ package com.example.myapplication
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.View
@@ -98,6 +99,8 @@ class MainActivity : AppCompatActivity() {
         val inflater = LayoutInflater.from(this)
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
+        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
+        val btnSettings = findViewById<ImageButton>(R.id.btnSettings)
 
         // Inside onCreate, after setContentView(rootView)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
@@ -107,9 +110,24 @@ class MainActivity : AppCompatActivity() {
         val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
         val etDestination = findViewById<EditText>(R.id.etDestination)
+        val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
+        val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
+
+        btnGetDirections.setOnClickListener {
+            val searchBar = findViewById<CardView>(R.id.searchBar)
+            searchBar.visibility = View.GONE
+            btnGetDirections.visibility = View.GONE
+            closeDirections.visibility= View.VISIBLE
+            directionsPanel.visibility = View.VISIBLE
+            searchEditText.text.clear()
+            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+            btnSearch.tag = "search"
+        }
 
 
         // Apply window insets to search bar
@@ -139,6 +157,10 @@ class MainActivity : AppCompatActivity() {
             btnMyLocation.setOnClickListener {
                 handleMyLocationClick()
 
+            }
+            btnSettings.setOnClickListener {
+                val intent = Intent(this, SettingsActivity::class.java)
+                startActivity(intent)
             }
 
 
@@ -566,10 +588,14 @@ class MainActivity : AppCompatActivity() {
         btnSearchDestination: ImageButton,
         btnCalculateRoute: Button,
         closeDirections: LinearLayout
+
+
     ) {
+
         directionsPanel.visibility = View.GONE
         searchBar.visibility = View.VISIBLE
         closeDirections.visibility = View.GONE
+
         etOrigin.text.clear()
         etDestination.text.clear()
         etOrigin.isEnabled = true
