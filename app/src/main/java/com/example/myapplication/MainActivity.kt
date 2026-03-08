@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import androidx.annotation.RequiresPermission
@@ -54,6 +55,16 @@ import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import org.maplibre.android.style.layers.LineLayer
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.lineCap
+import org.maplibre.android.style.layers.PropertyFactory.lineColor
+import org.maplibre.android.style.layers.PropertyFactory.lineJoin
+import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.geojson.Feature
+import org.maplibre.geojson.LineString
+import org.maplibre.geojson.Point
 
 class MainActivity : AppCompatActivity() {
 
@@ -99,7 +110,6 @@ class MainActivity : AppCompatActivity() {
         val inflater = LayoutInflater.from(this)
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
-        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         val btnSettings = findViewById<ImageButton>(R.id.btnSettings)
 
         // Inside onCreate, after setContentView(rootView)
@@ -456,6 +466,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             catch(e: Exception) {
+                Log.e("SearchError", "Search failed", e)
+
                 withContext(Dispatchers.Main) {
                     Toast.makeText(
                         this@MainActivity,
@@ -540,6 +552,34 @@ class MainActivity : AppCompatActivity() {
     }
 
 
+// This portion was used to connect with backend that vasu did. It shows routes in the terminal
+// calculateAndDisplayRoute() should call this funciton for this to work
+//    private fun callRoutesBackend(origin: LatLng, destination: LatLng) {
+//        val client = OkHttpClient()
+//
+//        val url =
+//            "http://10.0.2.2:3001/api/routes" +
+//                    "?originLat=${origin.latitude}" +
+//                    "&originLon=${origin.longitude}" +
+//                    "&destLat=${destination.latitude}" +
+//                    "&destLon=${destination.longitude}"
+//
+//        val request = Request.Builder()
+//            .url(url)
+//            .get()
+//            .build()
+//
+//        client.newCall(request).enqueue(object : Callback {
+//            override fun onFailure(call: Call, e: IOException) {
+//                android.util.Log.e("ROUTES_API", "Request failed", e)
+//            }
+//
+//            override fun onResponse(call: Call, response: Response) {
+//                val body = response.body?.string()
+//                android.util.Log.d("ROUTES_API", "Response: $body")
+//            }
+//        })
+//    }
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         btnCalculateRoute.isEnabled = originSearched && destinationSearched
@@ -570,13 +610,113 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun drawRoute(map: MapLibreMap, routePoints: List<LatLng>) {
+
+        val coordinates = routePoints.map {
+            Point.fromLngLat(it.longitude, it.latitude)
+        }
+
+        val lineString = LineString.fromLngLats(coordinates)
+        val feature = Feature.fromGeometry(lineString)
+
+        val geoJsonSource = GeoJsonSource("route-source", feature)
+
+        val style = map.style ?: return
+
+        if (style.getSource("route-source") == null) {
+
+            style.addSource(geoJsonSource)
+
+            val lineLayer = LineLayer("route-layer", "route-source").withProperties(
+                lineColor("#007AFF"),
+                lineWidth(6f),
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND)
+            )
+
+            style.addLayer(lineLayer)
+
+        } else {
+
+            val source = style.getSourceAs<GeoJsonSource>("route-source")
+            source?.setGeoJson(feature)
+
+        }
+    }
+
+    private fun fetchRouteFromOSRM(
+        origin: LatLng,
+        destination: LatLng,
+        onResult: (String) -> Unit
+    ) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val url =
+                    "https://router.project-osrm.org/route/v1/driving/" +
+                            "${origin.longitude},${origin.latitude};" +
+                            "${destination.longitude},${destination.latitude}" +
+                            "?overview=full&geometries=geojson"
+
+                val connection = URL(url).openConnection() as HttpURLConnection
+                connection.requestMethod = "GET"
+                connection.connectTimeout = 5000
+                connection.readTimeout = 5000
+                connection.setRequestProperty(
+                    "User-Agent",
+                    "NavEz/1.0 (your-email@example.com)"
+                )
+
+                val responseCode = connection.responseCode
+                if (responseCode != 200) {
+                    throw Exception("OSRM error: $responseCode")
+                }
+
+                val response = connection.inputStream
+                    .bufferedReader()
+                    .use { it.readText() }
+
+                withContext(Dispatchers.Main) {
+                    onResult(response)
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "Routing failed: ${e.localizedMessage}",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
+            }
+        }
+    }
+
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
-        Toast.makeText(
-            this,
-            "Calculating route from (${origin.latitude}, ${origin.longitude}) to (${destination.latitude}, ${destination.longitude})",
-            Toast.LENGTH_LONG
-        ).show()
-        // TODO: Implement OSRM routing here
+
+        fetchRouteFromOSRM(origin, destination) { response ->
+
+            val json = JSONObject(response)
+
+            val routes = json.getJSONArray("routes")
+            val route = routes.getJSONObject(0)
+
+            val geometry = route.getJSONObject("geometry")
+            val coordinates = geometry.getJSONArray("coordinates")
+
+            val routePoints = mutableListOf<LatLng>()
+
+            for (i in 0 until coordinates.length()) {
+
+                val point = coordinates.getJSONArray(i)
+
+                val lon = point.getDouble(0)
+                val lat = point.getDouble(1)
+
+                routePoints.add(LatLng(lat, lon))
+            }
+
+            drawRoute(mapLibreMap, routePoints)   // ← NEW LINE
+        }
     }
 
     private fun resetDirectionsPanel(
