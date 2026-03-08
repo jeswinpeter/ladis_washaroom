@@ -110,7 +110,6 @@ class MainActivity : AppCompatActivity() {
         val inflater = LayoutInflater.from(this)
         val rootView = inflater.inflate(R.layout.activity_main, null)
         setContentView(rootView)
-        val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         val btnSettings = findViewById<ImageButton>(R.id.btnSettings)
 
         // Inside onCreate, after setContentView(rootView)
