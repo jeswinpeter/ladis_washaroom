@@ -140,6 +140,24 @@ app.post('/api/fare', (req, res) => {
   res.json(result);
 });
 
+// GET /api/sun-side?originLat=&originLon=&destLat=&destLon=&time=
+app.get('/api/sun-side', (req, res) => {
+  const { originLat, originLon, destLat, destLon, time } = req.query;
+
+  if (!originLat || !originLon || !destLat || !destLon) {
+    return res.status(400).json({ error: 'originLat, originLon, destLat, destLon are required' });
+  }
+
+  const travelTime = time ? new Date(time) : new Date();
+  const bearing = calculateBearing(
+    parseFloat(originLat), parseFloat(originLon),
+    parseFloat(destLat),   parseFloat(destLon)
+  );
+  const sunSide = getSunSide(parseFloat(originLat), parseFloat(originLon), travelTime, bearing);
+
+  res.json({ bearing, sun_side: sunSide });
+});
+
 // === START SERVER ===
 app.listen(port, () => {
   console.log(`🚀 Server running on http://localhost:${port}`);
