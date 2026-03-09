@@ -21,8 +21,9 @@ import org.maplibre.android.maps.Style
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
-import android.widget.FrameLayout
 import androidx.cardview.widget.CardView
+import androidx.coordinatorlayout.widget.CoordinatorLayout
+import com.google.android.material.bottomsheet.BottomSheetBehavior
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
@@ -77,6 +78,7 @@ class MainActivity : AppCompatActivity() {
     private var destinationPoint: LatLng? = null
     private var originSearched = false
     private var destinationSearched = false
+    private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
 
 
     @SuppressLint("MissingPermission")
@@ -128,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
 
-        btnGetDirections.setOnClickListener {
+        /*btnGetDirections.setOnClickListener {
             val searchBar = findViewById<CardView>(R.id.searchBar)
             searchBar.visibility = View.GONE
             btnGetDirections.visibility = View.GONE
@@ -137,14 +139,20 @@ class MainActivity : AppCompatActivity() {
             searchEditText.text.clear()
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
-        }
+        }*/
 
+
+        // Set up persistent bottom sheet (initially hidden, map stays interactive behind it)
+        val placeDetailsSheet = rootView.findViewById<LinearLayout>(R.id.placeDetailsSheet)
+        placeDetailsSheetBehavior = BottomSheetBehavior.from(placeDetailsSheet)
+        placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+        placeDetailsSheetBehavior.isHideable = true
 
         // Apply window insets to search bar
         val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
         ViewCompat.setOnApplyWindowInsetsListener(searchBar) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.updateLayoutParams<FrameLayout.LayoutParams> {
+            view.updateLayoutParams<CoordinatorLayout.LayoutParams> {
                 topMargin = systemBars.top + 16  // Status bar + 16dp
             }
             insets
@@ -334,7 +342,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1"
+                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1&featuretype=settlement&tag=place"
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = 5000 // 5 seconds
@@ -391,7 +399,6 @@ class MainActivity : AppCompatActivity() {
                     val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE)
                             as android.view.inputmethod.InputMethodManager
                     imm.hideSoftInputFromWindow(textToUpdate.windowToken, 0)
-
                     // Handle based on search type
                     when (searchType) {
                         SearchType.MAIN -> {
@@ -405,9 +412,7 @@ class MainActivity : AppCompatActivity() {
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
 
                             fetchWikipediaSummary(displayName) { wikiSummary ->
-
                                 val fragment = PlaceDetailsFragment()
-
                                 val bundle = Bundle().apply {
                                     putString("name", displayName)
                                     putString("address", displayName)
@@ -415,54 +420,62 @@ class MainActivity : AppCompatActivity() {
                                     putDouble("lon", lon)
                                     putString("wiki", wikiSummary)
                                 }
-
                                 fragment.arguments = bundle
-                                fragment.show(supportFragmentManager, "PlaceDetails")
+                                supportFragmentManager.beginTransaction()
+                                    .replace(R.id.placeDetailsContainer, fragment, "PlaceDetails")
+                                    .commit()
+                                placeDetailsSheetBehavior.state =
+                                    BottomSheetBehavior.STATE_COLLAPSED
+
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Found: $displayName",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }}
+
+                            SearchType.ORIGIN -> {
+                                startPoint = latLng
+                                originSearched = true
+
+                                // Enable destination field
+                                val etDest = findViewById<EditText>(R.id.etDestination)
+                                val btnSearchDest =
+                                    findViewById<ImageButton>(R.id.btnSearchDestination)
+                                etDest.isEnabled = true
+                                btnSearchDest.isEnabled = true
+                                etDest.requestFocus()
+
+                                updateCalculateButtonState()
+                                Toast.makeText(this@MainActivity, "Origin set", Toast.LENGTH_SHORT)
+                                    .show()
                             }
 
-                            Toast.makeText(
-                                this@MainActivity,
-                                "Found: $displayName",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+                            SearchType.DESTINATION -> {
+                                destinationPoint = latLng
+                                destinationSearched = true
 
-                        SearchType.ORIGIN -> {
-                            startPoint = latLng
-                            originSearched = true
+                                updateCalculateButtonState()
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    "Destination set",
+                                    Toast.LENGTH_SHORT
+                                )
+                                    .show()
+                            }
 
-                            // Enable destination field
-                            val etDest = findViewById<EditText>(R.id.etDestination)
-                            val btnSearchDest = findViewById<ImageButton>(R.id.btnSearchDestination)
-                            etDest.isEnabled = true
-                            btnSearchDest.isEnabled = true
-                            etDest.requestFocus()
-
-                            updateCalculateButtonState()
-                            Toast.makeText(this@MainActivity, "Origin set", Toast.LENGTH_SHORT)
-                                .show()
-                        }
-
-                        SearchType.DESTINATION -> {
-                            destinationPoint = latLng
-                            destinationSearched = true
-
-                            updateCalculateButtonState()
-                            Toast.makeText(this@MainActivity, "Destination set", Toast.LENGTH_SHORT)
-                                .show()
-
-                        // 3. Hide Keyboard
-                        val imm = getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
-                        imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
-
-                        Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG).show()
                     }
-                }
-            }
 
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "Search failed: ${e.localizedMessage}", Toast.LENGTH_SHORT).show()
+                    /*// 3. Hide Keyboard
+                    val imm =
+                        getSystemService(android.content.Context.INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+
+                    imm.hideSoftInputFromWindow(searchEditText.windowToken, 0)
+
+                    Toast.makeText(this@MainActivity, "Found: $displayName", Toast.LENGTH_LONG)
+                        .show()
+                    */
+
                 }
             }
             catch(e: Exception) {
