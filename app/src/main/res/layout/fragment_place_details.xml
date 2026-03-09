@@ -1,60 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.google.android.material.card.MaterialCardView
+<LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
-    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="16dp"
-    app:cardCornerRadius="20dp"
-    app:cardElevation="8dp">
+    android:orientation="vertical"
+    android:background="@android:color/white">
 
+    <!-- Drag Handle -->
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginTop="10dp"
+        android:layout_marginBottom="10dp"
+        android:background="#CCCCCC" />
+
+    <!-- Header — always visible in collapsed/peek state -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="20dp">
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="14dp">
 
-        <!-- Place Name -->
         <TextView
             android:id="@+id/tvPlaceName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="20sp"
             android:textStyle="bold"
-            android:textColor="@android:color/black"/>
+            android:textColor="@android:color/black" />
 
-        <!-- Address -->
         <TextView
             android:id="@+id/tvAddress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:textColor="@android:color/darker_gray"/>
-
-        <!-- Wikipedia Summary -->
-        <TextView
-            android:id="@+id/tvWikiSummary"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:textColor="@android:color/black"/>
-
-        <!-- Coordinates -->
-        <TextView
-            android:id="@+id/tvCoordinates"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:textColor="@android:color/darker_gray"/>
-
-        <!-- Open in Maps Button -->
-        <Button
-            android:id="@+id/btnOpenExternal"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Open in Maps"/>
-
+            android:layout_marginTop="4dp"
+            android:textColor="@android:color/darker_gray"
+            android:maxLines="2"
+            android:ellipsize="end" />
     </LinearLayout>
 
-</com.google.android.material.card.MaterialCardView>
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="#EEEEEE" />
+
+    <!-- Scrollable content: Wikipedia, coordinates, and action button -->
+    <androidx.core.widget.NestedScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="14dp"
+            android:paddingBottom="32dp">
+
+            <!-- Wikipedia Summary -->
+            <TextView
+                android:id="@+id/tvWikiSummary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/black"
+                android:lineSpacingMultiplier="1.4" />
+
+            <!-- Coordinates -->
+            <TextView
+                android:id="@+id/tvCoordinates"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:textColor="@android:color/darker_gray" />
+
+            <!-- Open in Maps Button -->
+            <Button
+                android:id="@+id/btnOpenExternal"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Open in Maps" />
+
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
+
+</LinearLayout>
