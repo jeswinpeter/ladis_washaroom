@@ -23,6 +23,23 @@
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
         android:paddingBottom="14dp">
+        <Button
+            android:id="@+id/btnGetDirections"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="Get Directions" />
+
+    </LinearLayout>
+
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="20dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="14dp">
 
         <TextView
             android:id="@+id/tvPlaceName"

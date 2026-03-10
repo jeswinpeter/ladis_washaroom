@@ -67,7 +67,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener {
 
     // Declare a variable for MapView
     private lateinit var mapView: MapView
@@ -122,10 +122,6 @@ class MainActivity : AppCompatActivity() {
         val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
         val etDestination = findViewById<EditText>(R.id.etDestination)
-        val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
-        val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
-        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
-        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
@@ -189,17 +185,6 @@ class MainActivity : AppCompatActivity() {
             val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
 
 
-            btnGetDirections.setOnClickListener {
-                val searchBar = findViewById<CardView>(R.id.searchBar)
-                searchBar.visibility = View.GONE
-                btnGetDirections.visibility = View.GONE
-                closeDirections.visibility= View.VISIBLE
-                directionsPanel.visibility = View.VISIBLE
-                searchEditText.text.clear()
-                btnSearch.setImageResource(android.R.drawable.ic_menu_search)
-                btnSearch.tag = "search"
-            }
-
 
             // Zoom in button
             btnZoomIn.setOnClickListener {
@@ -234,6 +219,8 @@ class MainActivity : AppCompatActivity() {
                     btnSearch.tag = "search"
                     findViewById<Button>(R.id.btnGetDirections).visibility = View.GONE
                     destinationPoint = null
+                    placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+
                 }
             }
 
@@ -326,6 +313,8 @@ class MainActivity : AppCompatActivity() {
             btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
                     btnSearchOrigin, btnSearchDestination, btnCalculateRoute, closeDirections)
+
+                placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
             }
         }
     }
@@ -405,8 +394,8 @@ class MainActivity : AppCompatActivity() {
                             destinationPoint = latLng
 
                             // Show the Directions button
-                            val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
-                            btnGetDirections.visibility = View.VISIBLE
+                            //val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+                            //btnGetDirections.visibility = View.VISIBLE
 
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
@@ -819,6 +808,25 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView.onSaveInstanceState(outState)
+    }
+    override fun onGetDirectionsClicked() {
+        val searchBar = findViewById<CardView>(R.id.searchBar)
+        val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+        val closeDirections = findViewById<View>(R.id.btnCloseDirections)
+        val directionsPanel = findViewById<View>(R.id.directionsPanel)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+
+        searchBar.visibility = View.GONE
+        btnGetDirections.visibility = View.GONE
+        closeDirections.visibility = View.VISIBLE
+        directionsPanel.visibility = View.VISIBLE
+        searchEditText.text.clear()
+        btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+        btnSearch.tag = "search"
+
+        placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }
