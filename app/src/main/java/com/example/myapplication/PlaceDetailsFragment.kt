@@ -9,8 +9,28 @@ import android.view.ViewGroup
 import android.widget.Button
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import android.content.Context
 
 class PlaceDetailsFragment : Fragment() {
+
+    interface OnGetDirectionsClickListener {
+        fun onGetDirectionsClicked()
+    }
+
+    private var directionsListener: OnGetDirectionsClickListener? = null
+
+    // Attach the listener when fragment connects to activity
+    override fun onAttach(context: Context) {
+        super.onAttach(context)
+        if (context is OnGetDirectionsClickListener) {
+            directionsListener = context
+        }
+    }
+
+    override fun onDetach() {
+        super.onDetach()
+        directionsListener = null
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -34,6 +54,8 @@ class PlaceDetailsFragment : Fragment() {
         val tvWikiSummary = view.findViewById<TextView>(R.id.tvWikiSummary)
         val tvCoordinates = view.findViewById<TextView>(R.id.tvCoordinates)
         val btnOpenExternal = view.findViewById<Button>(R.id.btnOpenExternal)
+        val btnGetDirections = view.findViewById<Button>(R.id.btnGetDirections)
+
 
         tvPlaceName.text = placeName
         tvAddress.text = address
@@ -50,6 +72,11 @@ class PlaceDetailsFragment : Fragment() {
             val uri = Uri.parse("geo:$lat,$lon?q=$lat,$lon($placeName)")
             val intent = Intent(Intent.ACTION_VIEW, uri)
             startActivity(intent)
+        }
+
+        btnGetDirections.setOnClickListener {
+            directionsListener?.onGetDirectionsClicked()
+
         }
     }
 }

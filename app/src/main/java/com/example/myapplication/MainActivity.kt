@@ -56,8 +56,13 @@ import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleRadius
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
+import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
 import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
@@ -67,7 +72,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener {
 
     // Declare a variable for MapView
     private lateinit var mapView: MapView
@@ -122,10 +127,6 @@ class MainActivity : AppCompatActivity() {
         val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
         val etDestination = findViewById<EditText>(R.id.etDestination)
-        val btnZoomIn = findViewById<ImageButton>(R.id.btnZoomIn)
-        val btnZoomOut = findViewById<ImageButton>(R.id.btnZoomOut)
-        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
-        val searchEditText = findViewById<EditText>(R.id.searchEditText)
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
@@ -189,17 +190,6 @@ class MainActivity : AppCompatActivity() {
             val btnChangeStyle = rootView.findViewById<FloatingActionButton>(R.id.btnChangeStyle)
 
 
-            btnGetDirections.setOnClickListener {
-                val searchBar = findViewById<CardView>(R.id.searchBar)
-                searchBar.visibility = View.GONE
-                btnGetDirections.visibility = View.GONE
-                closeDirections.visibility= View.VISIBLE
-                directionsPanel.visibility = View.VISIBLE
-                searchEditText.text.clear()
-                btnSearch.setImageResource(android.R.drawable.ic_menu_search)
-                btnSearch.tag = "search"
-            }
-
 
             // Zoom in button
             btnZoomIn.setOnClickListener {
@@ -234,6 +224,9 @@ class MainActivity : AppCompatActivity() {
                     btnSearch.tag = "search"
                     findViewById<Button>(R.id.btnGetDirections).visibility = View.GONE
                     destinationPoint = null
+                    removeMarker("end-source", "end-layer")
+                    placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+
                 }
             }
 
@@ -268,6 +261,8 @@ class MainActivity : AppCompatActivity() {
                     btnSearchOrigin.tag = "search"
                     startPoint = null
                     originSearched = false
+                    removeMarker("start-source", "start-layer")
+                    clearRoute()
                     updateCalculateButtonState()
                 }
             }
@@ -300,6 +295,7 @@ class MainActivity : AppCompatActivity() {
                     btnSearchDestination.tag = "search"
                     destinationPoint = null
                     destinationSearched = false
+                    removeMarker("end-source", "end-layer")
                     updateCalculateButtonState()
                 }
             }
@@ -327,6 +323,8 @@ class MainActivity : AppCompatActivity() {
             btnClose.setOnClickListener {
                 resetDirectionsPanel(directionsPanel, searchBar, etOrigin, etDestination,
                     btnSearchOrigin, btnSearchDestination, btnCalculateRoute, closeDirections)
+
+                placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
             }
         }
     }
@@ -343,7 +341,9 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val encodedQuery = URLEncoder.encode(query, "UTF-8")
-                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=1&featuretype=settlement&tag=place"
+                // Fetch up to 10 results so we can pick the best city/town match.
+                // featuretype and tag are not valid Nominatim /search params and are ignored.
+                val url = "https://nominatim.openstreetmap.org/search?q=$encodedQuery&format=json&limit=10&type=city&addressdetails=1"
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.connectTimeout = 5000 // 5 seconds
@@ -371,8 +371,23 @@ class MainActivity : AppCompatActivity() {
 
                 // Parse JSON
                 val jsonArray = JSONArray(response)
-                val json = jsonArray.getJSONObject(0)
 
+                // Prefer results where class=place and type is city/town/village/municipality
+
+                val cityTypes = setOf("city", "town", "village", "municipality")
+                var best: JSONObject = jsonArray.getJSONObject(0) // fallback to first
+
+                for (i in 0 until jsonArray.length()) {
+                    val candidate = jsonArray.getJSONObject(i)
+                    val placeClass = candidate.optString("class", "")
+                    val placeType = candidate.optString("type", "")
+                    if (placeClass == "place" && placeType in cityTypes) {
+                        best = candidate
+                        break
+                    }
+                }
+
+                val json = best
                 val lat = json.getString("lat").toDouble()
                 val lon = json.getString("lon").toDouble()
                 val displayName = json.getString("display_name")
@@ -404,15 +419,16 @@ class MainActivity : AppCompatActivity() {
                     when (searchType) {
                         SearchType.MAIN -> {
                             destinationPoint = latLng
+                            addOrUpdateCircleMarker(lat, lon, "end-source", "end-layer", "#E63946")
 
                             // Show the Directions button
-                            val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
-                            btnGetDirections.visibility = View.VISIBLE
+                            //val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+                            //btnGetDirections.visibility = View.VISIBLE
 
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
 
-                            fetchWikipediaSummary(displayName) { wikiSummary ->
+                            fetchWikipediaSummary(displayName, lat, lon) { wikiSummary ->
                                 val fragment = PlaceDetailsFragment()
                                 val bundle = Bundle().apply {
                                     putString("name", displayName)
@@ -455,6 +471,7 @@ class MainActivity : AppCompatActivity() {
                             SearchType.DESTINATION -> {
                                 destinationPoint = latLng
                                 destinationSearched = true
+                                addOrUpdateCircleMarker(lat, lon, "end-source", "end-layer", "#E63946")
 
                                 updateCalculateButtonState()
                                 Toast.makeText(
@@ -526,32 +543,60 @@ class MainActivity : AppCompatActivity() {
         }
 
     // Wikipedia summary call function
+    // Uses coordinate-based geosearch so it reliably finds the right article
     private fun fetchWikipediaSummary(
         placeName: String,
+        lat: Double,
+        lon: Double,
         callback: (String?) -> Unit
     ) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val encodedName = URLEncoder.encode(placeName, "UTF-8")
-                val url =
-                    "https://en.wikipedia.org/api/rest_v1/page/summary/$encodedName"
+                // Step 1: find the nearest Wikipedia article to the coordinates
+                val geoUrl = "https://en.wikipedia.org/w/api.php" +
+                    "?action=query&list=geosearch" +
+                    "&gscoord=${lat}%7C${lon}" +
+                    "&gsradius=1000&gslimit=1&format=json"
 
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.requestMethod = "GET"
-                connection.connectTimeout = 5000
-                connection.readTimeout = 5000
-                connection.connect()
+                val geoConn = URL(geoUrl).openConnection() as HttpURLConnection
+                geoConn.requestMethod = "GET"
+                geoConn.connectTimeout = 5000
+                geoConn.readTimeout = 5000
+                geoConn.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
+                geoConn.connect()
 
-                if (connection.responseCode != 200) {
+                if (geoConn.responseCode != 200) {
                     withContext(Dispatchers.Main) { callback(null) }
                     return@launch
                 }
 
-                val response =
-                    connection.inputStream.bufferedReader().use { it.readText() }
+                val geoJson = JSONObject(geoConn.inputStream.bufferedReader().use { it.readText() })
+                val geoResults = geoJson.getJSONObject("query").getJSONArray("geosearch")
 
-                val json = JSONObject(response)
-                val summary = json.optString("extract", null)
+                if (geoResults.length() == 0) {
+                    withContext(Dispatchers.Main) { callback(null) }
+                    return@launch
+                }
+
+                val pageTitle = geoResults.getJSONObject(0).getString("title")
+                val encodedTitle = URLEncoder.encode(pageTitle, "UTF-8").replace("+", "%20")
+
+                // Step 2: fetch the summary for that article
+                val summaryUrl = "https://en.wikipedia.org/api/rest_v1/page/summary/$encodedTitle"
+
+                val summaryConn = URL(summaryUrl).openConnection() as HttpURLConnection
+                summaryConn.requestMethod = "GET"
+                summaryConn.connectTimeout = 5000
+                summaryConn.readTimeout = 5000
+                summaryConn.connect()
+
+                if (summaryConn.responseCode != 200) {
+                    withContext(Dispatchers.Main) { callback(null) }
+                    return@launch
+                }
+
+                val summaryJson = JSONObject(summaryConn.inputStream.bufferedReader().use { it.readText() })
+                val summary = summaryJson.optString("extract", null)
 
                 withContext(Dispatchers.Main) {
                     callback(summary)
@@ -647,6 +692,36 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun addOrUpdateCircleMarker(lat: Double, lon: Double, sourceId: String, layerId: String, colorHex: String) {
+        val style = mapLibreMap.style ?: return
+        val point = Point.fromLngLat(lon, lat)
+        val feature = Feature.fromGeometry(point)
+        if (style.getSource(sourceId) == null) {
+            style.addSource(GeoJsonSource(sourceId, feature))
+            val circleLayer = CircleLayer(layerId, sourceId).withProperties(
+                circleColor(colorHex),
+                circleRadius(12f),
+                circleStrokeWidth(3f),
+                circleStrokeColor("#FFFFFF")
+            )
+            style.addLayer(circleLayer)
+        } else {
+            style.getSourceAs<GeoJsonSource>(sourceId)?.setGeoJson(feature)
+        }
+    }
+
+    private fun removeMarker(sourceId: String, layerId: String) {
+        val style = mapLibreMap.style ?: return
+        if (style.getLayer(layerId) != null) style.removeLayer(layerId)
+        if (style.getSource(sourceId) != null) style.removeSource(sourceId)
+    }
+
+    private fun clearRoute() {
+        val style = mapLibreMap.style ?: return
+        if (style.getLayer("route-layer") != null) style.removeLayer("route-layer")
+        if (style.getSource("route-source") != null) style.removeSource("route-source")
     }
 
     private fun drawRoute(map: MapLibreMap, routePoints: List<LatLng>) {
@@ -754,7 +829,8 @@ class MainActivity : AppCompatActivity() {
                 routePoints.add(LatLng(lat, lon))
             }
 
-            drawRoute(mapLibreMap, routePoints)   // ← NEW LINE
+            drawRoute(mapLibreMap, routePoints)
+            addOrUpdateCircleMarker(origin.latitude, origin.longitude, "start-source", "start-layer", "#007AFF")
         }
     }
 
@@ -792,6 +868,10 @@ class MainActivity : AppCompatActivity() {
         destinationPoint = null
         originSearched = false
         destinationSearched = false
+
+        removeMarker("start-source", "start-layer")
+        removeMarker("end-source", "end-layer")
+        clearRoute()
     }
 
 // Map style changing
@@ -845,6 +925,25 @@ class MainActivity : AppCompatActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         mapView.onSaveInstanceState(outState)
+    }
+    override fun onGetDirectionsClicked() {
+        val searchBar = findViewById<CardView>(R.id.searchBar)
+        val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
+        val closeDirections = findViewById<View>(R.id.btnCloseDirections)
+        val directionsPanel = findViewById<View>(R.id.directionsPanel)
+        val searchEditText = findViewById<EditText>(R.id.searchEditText)
+        val btnSearch = findViewById<ImageButton>(R.id.btnSearch)
+
+        searchBar.visibility = View.GONE
+        btnGetDirections.visibility = View.GONE
+        closeDirections.visibility = View.VISIBLE
+        directionsPanel.visibility = View.VISIBLE
+        searchEditText.text.clear()
+        btnSearch.setImageResource(android.R.drawable.ic_menu_search)
+        btnSearch.tag = "search"
+
+        placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
+
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }
