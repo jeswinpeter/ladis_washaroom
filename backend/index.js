@@ -66,55 +66,53 @@ app.post('/api/sos', async (req, res) => {
 // Start the background simulation
 startSimulation();
 
-// ... YOUR EXISTING CODE (app.get routes, app.get vehicles, app.post sos) ...
-
-// === NEW SHADE ENDPOINT ===
-app.get('/api/shade-recommendation', async (req, res) => {
-  const { route_id, departure_time } = req.query;
+// // === NEW SHADE ENDPOINT ===
+// app.get('/api/shade-recommendation', async (req, res) => {
+//   const { route_id, departure_time } = req.query;
   
-  try {
-    const routeResult = await pool.query('SELECT * FROM routes WHERE id = $1', [route_id]);
-    if (routeResult.rows.length === 0) return res.status(404).json({ error: 'Route not found' });
+//   try {
+//     const routeResult = await pool.query('SELECT * FROM routes WHERE id = $1', [route_id]);
+//     if (routeResult.rows.length === 0) return res.status(404).json({ error: 'Route not found' });
     
-    const route = routeResult.rows[0];
-    const travelTime = departure_time ? new Date(departure_time) : new Date();
+//     const route = routeResult.rows[0];
+//     const travelTime = departure_time ? new Date(departure_time) : new Date();
     
-    // Hardcoded coordinates for MVP (match these to your seed data)
-    let startLat, startLng, endLat, endLng;
+//     // Hardcoded coordinates for MVP (match these to your seed data)
+//     let startLat, startLng, endLat, endLng;
     
-    if (route_id == 1) { // Aluva - Vyttila
-      startLat = 10.0500; startLng = 76.3300;
-      endLat = 9.9800; endLng = 76.2900;
-    } else if (route_id == 2) { // Fort Kochi - Menaka
-      startLat = 9.9600; startLng = 76.2400;
-      endLat = 9.9400; endLng = 76.2600;
-    } else { // Kakkanad - Infopark
-      startLat = 10.0100; startLng = 76.3500;
-      endLat = 10.0300; endLng = 76.3800;
-    }
+//     if (route_id == 1) { // Aluva - Vyttila
+//       startLat = 10.0500; startLng = 76.3300;
+//       endLat = 9.9800; endLng = 76.2900;
+//     } else if (route_id == 2) { // Fort Kochi - Menaka
+//       startLat = 9.9600; startLng = 76.2400;
+//       endLat = 9.9400; endLng = 76.2600;
+//     } else { // Kakkanad - Infopark
+//       startLat = 10.0100; startLng = 76.3500;
+//       endLat = 10.0300; endLng = 76.3800;
+//     }
     
-    const bearing = calculateBearing(startLat, startLng, endLat, endLng);
-    const sunSide = getSunSide(startLat, startLng, travelTime, bearing);
+//     const bearing = calculateBearing(startLat, startLng, endLat, endLng);
+//     const sunSide = getSunSide(startLat, startLng, travelTime, bearing);
     
-    let advice = '';
-    if (sunSide === 'LEFT') advice = 'Sit on the RIGHT side of the bus (Sun is on the left)';
-    else if (sunSide === 'RIGHT') advice = 'Sit on the LEFT side of the bus (Sun is on the right)';
-    else if (sunSide === 'FRONT') advice = 'Wear sunglasses, sun is in your face';
-    else if (sunSide === 'BACK') advice = 'Sun is behind you, you are good!';
-    else advice = 'It is night time, no sun concerns.';
+//     let advice = '';
+//     if (sunSide === 'LEFT') advice = 'Sit on the RIGHT side of the bus (Sun is on the left)';
+//     else if (sunSide === 'RIGHT') advice = 'Sit on the LEFT side of the bus (Sun is on the right)';
+//     else if (sunSide === 'FRONT') advice = 'Wear sunglasses, sun is in your face';
+//     else if (sunSide === 'BACK') advice = 'Sun is behind you, you are good!';
+//     else advice = 'It is night time, no sun concerns.';
     
-    res.json({
-      route: route.route_name,
-      time: travelTime.toISOString(),
-      sun_position: sunSide,
-      recommendation: advice
-    });
+//     res.json({
+//       route: route.route_name,
+//       time: travelTime.toISOString(),
+//       sun_position: sunSide,
+//       recommendation: advice
+//     });
     
-  } catch (err) {
-    console.error(err);
-    res.status(500).send('Server Error');
-  }
-});
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).send('Server Error');
+//   }
+// });
 
 // === AUTORICKSHAW FARE CALCULATOR ===
 app.post('/api/fare', (req, res) => {
@@ -138,6 +136,31 @@ app.post('/api/fare', (req, res) => {
   });
 
   res.json(result);
+});
+
+// API endpont for sit-in-shade. Returns advice
+app.get('/api/sun-side', (req, res) => {
+  const { originLat, originLon, destLat, destLon, time } = req.query;
+
+  if (!originLat || !originLon || !destLat || !destLon) {
+    return res.status(400).json({ error: 'originLat, originLon, destLat, destLon are required' });
+  }
+
+  const travelTime = time ? new Date(time) : new Date();
+  const bearing = calculateBearing(
+    parseFloat(originLat), parseFloat(originLon),
+    parseFloat(destLat),   parseFloat(destLon)
+  );
+  const sunSide = getSunSide(parseFloat(originLat), parseFloat(originLon), travelTime, bearing);
+
+  let advice = '';
+  if (sunSide === 'LEFT') advice = 'Sit on the RIGHT side of the bus (Sun is on the left)';
+  else if (sunSide === 'RIGHT') advice = 'Sit on the LEFT side of the bus (Sun is on the right)';
+  else if (sunSide === 'FRONT') advice = 'Wear sunglasses, sun is in your face';
+  else if (sunSide === 'BACK') advice = 'Sun is behind you, you are good!';
+  else advice = 'It is night time, no sun concerns.';
+
+  res.json({advice});
 });
 
 // === START SERVER ===

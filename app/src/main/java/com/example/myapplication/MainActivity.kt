@@ -318,6 +318,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             btnCalculateRoute.setOnClickListener {
                 if (startPoint != null && destinationPoint != null) {
                     calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
+                    checkSunSide(startPoint!!, destinationPoint!!) // Testing backend for sitinshade
                 }
             }
 
@@ -645,6 +646,31 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 //            }
 //        })
 //    }
+
+    private fun checkSunSide(origin: LatLng, destination: LatLng) {
+        val client = OkHttpClient()
+
+        val url = "http://10.0.2.2:3001/api/sun-side" +
+                "?originLat=${origin.latitude}" +
+                "&originLon=${origin.longitude}" +
+                "&destLat=${destination.latitude}" +
+                "&destLon=${destination.longitude}"
+
+        val request = Request.Builder().url(url).get().build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("SUN_SIDE", "Request failed: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string()
+                Log.d("SUN_SIDE", "Response: $body")
+                // Example output: {"bearing":247.3,"sun_side":"RIGHT"}
+            }
+        })
+    }
+
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val bothReady = startPoint != null && destinationPoint != null
