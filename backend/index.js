@@ -160,7 +160,7 @@ app.get('/api/sun-side', (req, res) => {
   else if (sunSide === 'BACK') advice = 'Sun is behind you, you are good!';
   else advice = 'It is night time, no sun concerns.';
 
-  res.json({advice});
+  res.json({ sun_side: sunSide, advice });
 });
 
 // === START SERVER ===
