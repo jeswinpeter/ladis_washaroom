@@ -57,9 +57,10 @@ class BusInfoBottomSheetFragment : BottomSheetDialogFragment() {
     private fun applyData(sitSide: String, sunPosition: String, recommendation: String) {
         tvSitSideBadge?.text   = sitSide
         tvSitLabel?.text       = when (sitSide) {
-            "R"  -> "Sit on the Right side"
-            "L"  -> "Sit on the Left side"
-            else -> "Calculating..."
+            "R"   -> "Sit on the Right side"
+            "L"   -> "Sit on the Left side"
+            "L/R" -> "Either side is fine"
+            else  -> "Calculating..."
         }
         tvSunPosition?.text    = sunPosition
         tvRecommendation?.text = recommendation

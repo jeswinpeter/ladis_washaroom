@@ -318,7 +318,6 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             btnCalculateRoute.setOnClickListener {
                 if (startPoint != null && destinationPoint != null) {
                     calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
-                    checkSunSide(startPoint!!, destinationPoint!!) // Testing backend for sitinshade
                 }
             }
 
@@ -646,31 +645,6 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 //            }
 //        })
 //    }
-
-    private fun checkSunSide(origin: LatLng, destination: LatLng) {
-        val client = OkHttpClient()
-
-        val url = "http://10.0.2.2:3001/api/sun-side" +
-                "?originLat=${origin.latitude}" +
-                "&originLon=${origin.longitude}" +
-                "&destLat=${destination.latitude}" +
-                "&destLon=${destination.longitude}"
-
-        val request = Request.Builder().url(url).get().build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                Log.e("SUN_SIDE", "Request failed: ${e.message}")
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string()
-                Log.d("SUN_SIDE", "Response: $body")
-                // Example output: {"bearing":247.3,"sun_side":"RIGHT"}
-            }
-        })
-    }
-
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val bothReady = startPoint != null && destinationPoint != null
@@ -915,7 +889,45 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             } else {
                 existing.updateData("–", "–", "Awaiting route data...")
             }
+
+            // Fetch real shade data and update the sheet when ready
+            fetchSunSide(origin, destination)
         }
+    }
+
+    private fun fetchSunSide(origin: LatLng, destination: LatLng) {
+        val url = "http://10.0.2.2:3001/api/sun-side" +
+            "?originLat=${origin.latitude}" +
+            "&originLon=${origin.longitude}" +
+            "&destLat=${destination.latitude}" +
+            "&destLon=${destination.longitude}"
+
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).get().build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    busInfoSheet?.updateData("–", "–", "Could not fetch seating advice")
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: return
+                try {
+                    val json = JSONObject(body)
+                    val advice  = json.optString("advice", "No advice available")
+                    val sitSide = json.optString("sit_side", "–")
+                    runOnUiThread {
+                        busInfoSheet?.updateData(sitSide, "–", advice)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        busInfoSheet?.updateData("–", "–", "Could not parse seating advice")
+                    }
+                }
+            }
+        })
     }
 
     private fun resetDirectionsPanel(
