@@ -72,7 +72,7 @@ import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
 
-class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener {
+class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener,GpsAlarmFragment.RadiusListener{
 
     // Declare a variable for MapView
     private lateinit var mapView: MapView
@@ -84,6 +84,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
     private var busInfoSheet: BusInfoBottomSheetFragment? = null
+
 
 
     @SuppressLint("MissingPermission")
@@ -133,6 +134,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
+        val btnGpsAlarm = findViewById<FloatingActionButton>(R.id.btnGpsAlarm)
 
         /*btnGetDirections.setOnClickListener {
             val searchBar = findViewById<CardView>(R.id.searchBar)
@@ -207,6 +209,14 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             // Change style button
             btnChangeStyle.setOnClickListener {
                 toggleMapStyle()
+            }
+
+            //Change GPS Alarm
+            btnGpsAlarm.setOnClickListener {
+
+                val fragment = GpsAlarmFragment()
+                fragment.show(supportFragmentManager, "GPS_ALARM")
+
             }
 
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
@@ -879,6 +889,39 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         }
     }
 
+    private fun drawRadiusCircle(center: LatLng, radiusMeters: Int) {
+
+        val style = mapLibreMap.style ?: return
+
+        val point = Point.fromLngLat(center.longitude, center.latitude)
+
+        if (style.getSource("alarm-source") == null) {
+
+            style.addSource(GeoJsonSource("alarm-source", Feature.fromGeometry(point)))
+
+            val layer = CircleLayer("alarm-layer", "alarm-source").withProperties(
+                circleRadius(radiusMeters / 3f),
+                circleColor("#5533A1FF"),
+                circleStrokeColor("#3366FF"),
+                circleStrokeWidth(3f)
+            )
+
+            style.addLayer(layer)
+
+        } else {
+
+            val layer = style.getLayer("alarm-layer") as CircleLayer
+            layer.setProperties(circleRadius(radiusMeters / 3f))
+        }
+    }
+    override fun onRadiusChanged(radiusMeters: Int) {
+
+        val loc = mapLibreMap.locationComponent.lastKnownLocation ?: return
+
+        val center = LatLng(loc.latitude, loc.longitude)
+
+        drawRadiusCircle(center, radiusMeters)
+    }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
 
         fetchRouteFromOSRM(origin, destination) { response ->
