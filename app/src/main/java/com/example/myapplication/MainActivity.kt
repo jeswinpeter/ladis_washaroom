@@ -321,7 +321,6 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             btnCalculateRoute.setOnClickListener {
                 if (startPoint != null && destinationPoint != null) {
                     calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
-                    checkSunSide(startPoint!!, destinationPoint!!) // Testing backend for sitinshade
                 }
             }
 
@@ -1112,6 +1111,41 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             // Fetch bus route from OTP in parallel
             fetchBusRouteFromOTP(origin, destination)
         }
+    }
+
+    private fun fetchSunSide(origin: LatLng, destination: LatLng) {
+        val url = "http://10.0.2.2:3001/api/sun-side" +
+            "?originLat=${origin.latitude}" +
+            "&originLon=${origin.longitude}" +
+            "&destLat=${destination.latitude}" +
+            "&destLon=${destination.longitude}"
+
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).get().build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                runOnUiThread {
+                    busInfoSheet?.updateData("–", "–", "Could not fetch seating advice")
+                }
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: return
+                try {
+                    val json = JSONObject(body)
+                    val advice  = json.optString("advice", "No advice available")
+                    val sitSide = json.optString("sit_side", "–")
+                    runOnUiThread {
+                        busInfoSheet?.updateData(sitSide, "–", advice)
+                    }
+                } catch (e: Exception) {
+                    runOnUiThread {
+                        busInfoSheet?.updateData("–", "–", "Could not parse seating advice")
+                    }
+                }
+            }
+        })
     }
 
     private fun resetDirectionsPanel(
