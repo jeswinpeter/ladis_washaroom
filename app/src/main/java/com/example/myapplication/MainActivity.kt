@@ -81,9 +81,9 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     private var isLocationEnabled = false
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
-    private var originSearched = false
-    private var destinationSearched = false
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
+    private var pendingActionAfterGps: (() -> Unit)? = null
+    private var busInfoSheet: BusInfoBottomSheetFragment? = null
 
 
     @SuppressLint("MissingPermission")
@@ -93,8 +93,11 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         if (result.resultCode == RESULT_OK) {
             // User clicked "OK" - GPS is now on!
             mapLibreMap.style?.let { enableLocation(it) }
+            pendingActionAfterGps?.invoke()
+            pendingActionAfterGps = null
         } else {
             // User clicked "No thanks"
+            pendingActionAfterGps = null
             Toast.makeText(this, "Location services are required for this feature.", Toast.LENGTH_SHORT).show()
         }
     }
@@ -260,10 +263,10 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                     btnSearchOrigin.setImageResource(android.R.drawable.ic_menu_search)
                     btnSearchOrigin.tag = "search"
                     startPoint = null
-                    originSearched = false
                     removeMarker("start-source", "start-layer")
                     clearRoute()
                     updateCalculateButtonState()
+                    busInfoSheet?.updateData("–", "–", "Awaiting route data...")
                 }
             }
 
@@ -294,9 +297,9 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                     btnSearchDestination.setImageResource(android.R.drawable.ic_menu_search)
                     btnSearchDestination.tag = "search"
                     destinationPoint = null
-                    destinationSearched = false
                     removeMarker("end-source", "end-layer")
                     updateCalculateButtonState()
+                    busInfoSheet?.updateData("–", "–", "Awaiting route data...")
                 }
             }
 
@@ -350,7 +353,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 connection.readTimeout = 5000
                 connection.requestMethod = "GET"
 
-                connection.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
+                connection.setRequestProperty("User-Agent", "NavEz/2.0 (alwinjose.job@gmail.com)")
                 connection.connect()
 
                 val responseCode = connection.responseCode
@@ -427,6 +430,9 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
+                            val btnSearchDest = findViewById<ImageButton>(R.id.btnSearchDestination)
+                            btnSearchDest.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                            btnSearchDest.tag = "clear"
 
                             fetchWikipediaSummary(displayName, lat, lon) { wikiSummary ->
                                 val fragment = PlaceDetailsFragment()
@@ -449,11 +455,11 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                                     "Found: $displayName",
                                     Toast.LENGTH_LONG
                                 ).show()
-                            }}
+                            }
+                        }
 
                             SearchType.ORIGIN -> {
                                 startPoint = latLng
-                                originSearched = true
 
                                 // Enable destination field
                                 val etDest = findViewById<EditText>(R.id.etDestination)
@@ -470,7 +476,6 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
                             SearchType.DESTINATION -> {
                                 destinationPoint = latLng
-                                destinationSearched = true
                                 addOrUpdateCircleMarker(lat, lon, "end-source", "end-layer", "#E63946")
 
                                 updateCalculateButtonState()
@@ -527,6 +532,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
             if (!isLocationEnabled) {
                 mapLibreMap.style?.let { enableLocation(it) }
+                pendingActionAfterGps?.invoke()
+                pendingActionAfterGps = null
             } else {
                 checkLocationSettings()
                 // SAFE CHECK: Ensure we actually have a location before forcing an update
@@ -666,7 +673,72 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
-        btnCalculateRoute.isEnabled = originSearched && destinationSearched
+        val bothReady = startPoint != null && destinationPoint != null
+        btnCalculateRoute.isEnabled = bothReady
+
+        if (bothReady && startPoint != null && destinationPoint != null) {
+            calculateAndDisplayRoute(startPoint!!, destinationPoint!!)
+        }
+    }
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+    private fun autoFillOriginWithUserLocation(etOrigin: EditText, btnSearchOrigin: ImageButton) {
+        val fusedClient = LocationServices.getFusedLocationProviderClient(this)
+
+        val fillFromLocation = { lat: Double, lon: Double ->
+            lifecycleScope.launch(Dispatchers.IO) {
+                try {
+                    val url = "https://nominatim.openstreetmap.org/reverse?lat=$lat&lon=$lon&format=json"
+                    val connection = URL(url).openConnection() as HttpURLConnection
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
+                    connection.requestMethod = "GET"
+                    connection.setRequestProperty("User-Agent", "NavEz/1.0 (alwinjose.job@gmail.com)")
+                    connection.connect()
+
+                    if (connection.responseCode != 200) return@launch
+
+                    val response = connection.inputStream.bufferedReader().use { it.readText() }
+                    val json = JSONObject(response)
+                    val displayName = json.optString("display_name", "$lat, $lon")
+
+                    withContext(Dispatchers.Main) {
+                        startPoint = LatLng(lat, lon)
+                        etOrigin.setText(displayName)
+                        btnSearchOrigin.setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+                        btnSearchOrigin.tag = "clear"
+
+                        val etDest = findViewById<EditText>(R.id.etDestination)
+                        val btnSearchDest = findViewById<ImageButton>(R.id.btnSearchDestination)
+                        etDest.isEnabled = true
+                        btnSearchDest.isEnabled = true
+
+                        updateCalculateButtonState()
+                    }
+                } catch (e: Exception) {
+                    // Silently fail — origin stays empty for manual entry
+                }
+            }
+            Unit
+        }
+
+        fusedClient.lastLocation.addOnSuccessListener { location ->
+            if (location != null) {
+                fillFromLocation(location.latitude, location.longitude)
+            } else {
+                // GPS just enabled — lastLocation not ready yet, request one fresh fix
+                val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 0)
+                    .setMaxUpdates(1)
+                    .build()
+                val callback = object : LocationCallback() {
+                    override fun onLocationResult(result: LocationResult) {
+                        fusedClient.removeLocationUpdates(this)
+                        val freshLoc = result.lastLocation ?: return
+                        fillFromLocation(freshLoc.latitude, freshLoc.longitude)
+                    }
+                }
+                fusedClient.requestLocationUpdates(request, callback, mainLooper)
+            }
+        }
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     private fun checkLocationSettings() {
@@ -679,6 +751,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         task.addOnSuccessListener {
             // Settings are satisfied, we can enable location
             mapLibreMap.style?.let { enableLocation(it) }
+            pendingActionAfterGps?.invoke()
+            pendingActionAfterGps = null
         }
 
         task.addOnFailureListener { exception ->
@@ -831,6 +905,16 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
             drawRoute(mapLibreMap, routePoints)
             addOrUpdateCircleMarker(origin.latitude, origin.longitude, "start-source", "start-layer", "#007AFF")
+
+            // Show or update the Bus Info bottom sheet with placeholder data
+            val existing = busInfoSheet
+            if (existing == null || !existing.isAdded) {
+                val sheet = BusInfoBottomSheetFragment.newInstance()
+                sheet.show(supportFragmentManager, "BusInfo")
+                busInfoSheet = sheet
+            } else {
+                existing.updateData("–", "–", "Awaiting route data...")
+            }
         }
     }
 
@@ -866,12 +950,13 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
         startPoint = null
         destinationPoint = null
-        originSearched = false
-        destinationSearched = false
 
         removeMarker("start-source", "start-layer")
         removeMarker("end-source", "end-layer")
         clearRoute()
+
+        busInfoSheet?.dismiss()
+        busInfoSheet = null
     }
 
 // Map style changing
@@ -919,6 +1004,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
             grantResults[0] == PackageManager.PERMISSION_GRANTED
         ) {
             mapLibreMap.style?.let { enableLocation(it) }
+            pendingActionAfterGps?.invoke()
+            pendingActionAfterGps = null
         }
 
     }
@@ -926,6 +1013,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         super.onSaveInstanceState(outState)
         mapView.onSaveInstanceState(outState)
     }
+    @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onGetDirectionsClicked() {
         val searchBar = findViewById<CardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
@@ -944,6 +1032,13 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
         placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_HIDDEN
 
+        // Set pending action: once permission + GPS are confirmed, auto-fill origin
+        val etOrigin = findViewById<EditText>(R.id.etOrigin)
+        val btnSearchOrigin = findViewById<ImageButton>(R.id.btnSearchOrigin)
+        pendingActionAfterGps = { autoFillOriginWithUserLocation(etOrigin, btnSearchOrigin) }
+
+        // Reuse existing function — handles permission request + GPS dialog
+        handleMyLocationClick()
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }
