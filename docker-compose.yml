@@ -29,5 +29,17 @@ services:
         condition: service_healthy
     restart: always
 
+  otp:
+    image: opentripplanner/opentripplanner:latest
+    container_name: otp_server
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./otp/data:/var/opentripplanner
+    command: ["--build", "--serve"]
+    environment:
+      - JAVA_TOOL_OPTIONS=-Xmx6g
+    restart: unless-stopped
+
 volumes:
   pgdata:
