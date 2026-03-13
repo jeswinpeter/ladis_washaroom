@@ -71,8 +71,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
-
 class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener,GpsAlarmFragment.RadiusListener{
+    private var radiusMeters = 100
 
     // Declare a variable for MapView
     private lateinit var mapView: MapView
@@ -889,38 +889,41 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         }
     }
 
-    private fun drawRadiusCircle(center: LatLng, radiusMeters: Int) {
+    private fun updateAlarmRadius(radius: Int) {
+
+        val location = mapLibreMap.locationComponent.lastKnownLocation ?: return
+
+        val point = Point.fromLngLat(location.longitude, location.latitude)
 
         val style = mapLibreMap.style ?: return
 
-        val point = Point.fromLngLat(center.longitude, center.latitude)
+        if (style.getSource("radius-source") == null) {
 
-        if (style.getSource("alarm-source") == null) {
-
-            style.addSource(GeoJsonSource("alarm-source", Feature.fromGeometry(point)))
-
-            val layer = CircleLayer("alarm-layer", "alarm-source").withProperties(
-                circleRadius(radiusMeters / 3f),
-                circleColor("#5533A1FF"),
-                circleStrokeColor("#3366FF"),
-                circleStrokeWidth(3f)
+            style.addSource(
+                GeoJsonSource("radius-source", Feature.fromGeometry(point))
             )
 
-            style.addLayer(layer)
+            val circleLayer = CircleLayer("radius-layer", "radius-source")
+                .withProperties(
+                    circleRadius(radius.toFloat() / 3f),
+                    circleColor("#5533A1FF"),
+                    circleStrokeColor("#3366FF"),
+                    circleStrokeWidth(3f)
+                )
+
+            style.addLayer(circleLayer)
 
         } else {
 
-            val layer = style.getLayer("alarm-layer") as CircleLayer
-            layer.setProperties(circleRadius(radiusMeters / 3f))
+            val layer = style.getLayer("radius-layer") as CircleLayer
+
+            layer.setProperties(circleRadius(radius.toFloat() / 3f))
         }
     }
     override fun onRadiusChanged(radiusMeters: Int) {
 
-        val loc = mapLibreMap.locationComponent.lastKnownLocation ?: return
+        updateAlarmRadius(radiusMeters)
 
-        val center = LatLng(loc.latitude, loc.longitude)
-
-        drawRadiusCircle(center, radiusMeters)
     }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
 
