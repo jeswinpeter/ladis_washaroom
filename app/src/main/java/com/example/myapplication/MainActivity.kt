@@ -212,6 +212,15 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 toggleMapStyle()
             }
 
+            // Fare Calculator FAB (defined in XML)
+            val btnFare = rootView.findViewById<FloatingActionButton>(R.id.btnFareCalc)
+            btnFare?.setOnClickListener {
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.placeDetailsContainer, FareCalculatorFragment(), "FareCalc")
+                    .commit()
+                placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+
             btnSearch.setImageResource(android.R.drawable.ic_menu_search)
             btnSearch.tag = "search"
             // Search button click
