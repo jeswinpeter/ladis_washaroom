@@ -1115,7 +1115,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     }
 
     private fun fetchSunSide(origin: LatLng, destination: LatLng) {
-        val url = "http://10.0.2.2:3001/api/sun-side" +
+        val url = "https://shanelle-queenlike-magniloquently.ngrok-free.dev/api/sun-side" +
             "?originLat=${origin.latitude}" +
             "&originLon=${origin.longitude}" +
             "&destLat=${destination.latitude}" +
