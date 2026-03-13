@@ -51,6 +51,7 @@ import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Calendar
 import okhttp3.Callback
 import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
@@ -71,6 +72,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
+import java.io.OutputStreamWriter
+import java.time.Instant
 
 class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener {
 
@@ -645,6 +648,56 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 //            }
 //        })
 //    }
+
+    private fun checkSunSide(origin: LatLng, destination: LatLng) {
+        val client = OkHttpClient()
+
+        val url = "http://10.0.2.2:3001/api/sun-side" +
+                "?originLat=${origin.latitude}" +
+                "&originLon=${origin.longitude}" +
+                "&destLat=${destination.latitude}" +
+                "&destLon=${destination.longitude}"
+
+        val request = Request.Builder().url(url).get().build()
+
+        client.newCall(request).enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                Log.e("SUN_SIDE", "Request failed: ${e.message}")
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                val body = response.body?.string() ?: return
+                Log.d("SUN_SIDE", "Response: $body")
+                try {
+                    val json = JSONObject(body)
+                    val sunSide = json.optString("sun_side", "")
+                    val advice  = json.optString("advice", "")
+                    val sitSide = when (sunSide) {
+                        "LEFT"  -> "R"
+                        "RIGHT" -> "L"
+                        "NIGHT" -> "N"
+                        else    -> "–"   // FRONT / BACK
+                    }
+                    val sunPosition = when (sunSide) {
+                        "LEFT"  -> "Sun on Left"
+                        "RIGHT" -> "Sun on Right"
+                        "FRONT" -> "Sun Ahead"
+                        "BACK"  -> "Sun Behind"
+                        "NIGHT" -> "Nighttime"
+                        else    -> "–"
+                    }
+                    runOnUiThread {
+                        busInfoSheet?.let {
+                            if (it.isAdded) it.updateData(sitSide, sunPosition, advice)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Log.e("SUN_SIDE", "Parse error: ${e.message}")
+                }
+            }
+        })
+    }
+
     private fun updateCalculateButtonState() {
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val bothReady = startPoint != null && destinationPoint != null
@@ -770,6 +823,171 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         val style = mapLibreMap.style ?: return
         if (style.getLayer("route-layer") != null) style.removeLayer("route-layer")
         if (style.getSource("route-source") != null) style.removeSource("route-source")
+        clearBusRoute()
+    }
+
+    private fun clearBusRoute() {
+        val style = mapLibreMap.style ?: return
+        if (style.getLayer("bus-route-layer") != null) style.removeLayer("bus-route-layer")
+        if (style.getSource("bus-route-source") != null) style.removeSource("bus-route-source")
+    }
+
+    /** Draw the OTP bus route on the map as an orange-coloured polyline. */
+    private fun drawBusRoute(points: List<LatLng>) {
+        val style = mapLibreMap.style ?: return
+        val coordinates = points.map { Point.fromLngLat(it.longitude, it.latitude) }
+        val feature = Feature.fromGeometry(LineString.fromLngLats(coordinates))
+        if (style.getSource("bus-route-source") == null) {
+            style.addSource(GeoJsonSource("bus-route-source", feature))
+            style.addLayer(LineLayer("bus-route-layer", "bus-route-source").withProperties(
+                lineColor("#FF6B35"),
+                lineWidth(5f),
+                lineCap(Property.LINE_CAP_ROUND),
+                lineJoin(Property.LINE_JOIN_ROUND)
+            ))
+        } else {
+            style.getSourceAs<GeoJsonSource>("bus-route-source")?.setGeoJson(feature)
+        }
+    }
+
+    /** Decode a Google-encoded polyline string into a list of LatLng points. */
+    private fun decodePolyline(encoded: String): List<LatLng> {
+        val result = mutableListOf<LatLng>()
+        var index = 0
+        var lat = 0
+        var lng = 0
+        while (index < encoded.length) {
+            var b: Int; var shift = 0; var value = 0
+            do {
+                b = encoded[index++].code - 63
+                value = value or ((b and 0x1f) shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            lat += if (value and 1 != 0) (value shr 1).inv() else value shr 1
+            shift = 0; value = 0
+            do {
+                b = encoded[index++].code - 63
+                value = value or ((b and 0x1f) shl shift)
+                shift += 5
+            } while (b >= 0x20)
+            lng += if (value and 1 != 0) (value shr 1).inv() else value shr 1
+            result.add(LatLng(lat / 1e5, lng / 1e5))
+        }
+        return result
+    }
+
+    /**
+     * Fetch a TRANSIT+WALK itinerary from OTP (running on 10.0.2.2:8080) and
+     * draw the bus route polyline + update the BusInfoBottomSheet with transit details.
+     */
+    private fun fetchBusRouteFromOTP(origin: LatLng, destination: LatLng) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            try {
+                val query = """
+                {
+                  plan(
+                    from: {lat: ${origin.latitude}, lon: ${origin.longitude}}
+                    to: {lat: ${destination.latitude}, lon: ${destination.longitude}}
+                    numItineraries: 1
+                    transportModes: [
+                      {mode: BUS}, {mode: WALK}, {mode: TRAM},
+                      {mode: SUBWAY}, {mode: FERRY}
+                    ]
+                  ) {
+                    itineraries {
+                      duration
+                      legs {
+                        mode
+                        legGeometry { points }
+                        route { shortName }
+                      }
+                    }
+                  }
+                }
+            """.trimIndent()
+
+                val requestBody = JSONObject().put("query", query).toString()
+
+                val conn = URL("http://10.0.2.2:8080/otp/gtfs/v1").openConnection() as HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.setRequestProperty("Accept", "application/json")
+                conn.connectTimeout = 100000
+                conn.readTimeout = 100000
+                conn.doOutput = true
+
+                OutputStreamWriter(conn.outputStream).use { it.write(requestBody) }
+
+                if (conn.responseCode != 200) {
+                    throw Exception("OTP returned HTTP ${conn.responseCode}")
+                }
+
+                val response = conn.inputStream.bufferedReader().use { it.readText() }
+                val json = JSONObject(response)
+
+                // GraphQL wraps the result in a "data" object
+                val plan = json.optJSONObject("data")?.optJSONObject("plan")
+                val itineraries = plan?.optJSONArray("itineraries")
+
+                if (itineraries == null || itineraries.length() == 0) {
+                    withContext(Dispatchers.Main) {
+                        busInfoSheet?.updateTransitData("No route", "–", "No transit route found")
+                    }
+                    return@launch
+                }
+
+                val itinerary = itineraries.getJSONObject(0)
+                val durationSec = itinerary.optInt("duration", 0)
+                val durationMin = durationSec / 60
+
+                val legs = itinerary.optJSONArray("legs") ?: JSONArray()
+
+                val allPoints = mutableListOf<LatLng>()
+                val legParts = mutableListOf<String>()
+                var routeInfo = "Transit"
+                var firstTransit = true
+
+                for (i in 0 until legs.length()) {
+                    val leg = legs.getJSONObject(i)
+                    val mode = leg.optString("mode", "WALK")
+                    val encoded = leg.optJSONObject("legGeometry")?.optString("points", "") ?: ""
+
+                    if (encoded.isNotBlank()) {
+                        allPoints.addAll(decodePolyline(encoded))
+                    }
+
+                    when (mode.uppercase()) {
+                        "WALK" -> legParts.add("Walk")
+                        "BUS" -> {
+                            // GraphQL response has route as a nested object
+                            val route = leg.optJSONObject("route")?.optString("shortName", "Bus") ?: "Bus"
+                            legParts.add("Bus $route")
+                            if (firstTransit) {
+                                routeInfo = "Bus $route"
+                                firstTransit = false
+                            }
+                        }
+                        else -> legParts.add(mode)
+                    }
+                }
+
+                val legsDesc = legParts.joinToString(" → ")
+                val durationStr = if (durationMin > 0) "$durationMin min" else "–"
+
+                withContext(Dispatchers.Main) {
+                    if (allPoints.isNotEmpty()) drawBusRoute(allPoints)
+                    busInfoSheet?.updateTransitData(routeInfo, durationStr, legsDesc)
+                }
+
+            } catch (e: Exception) {
+                Log.e("OTP", "Bus route fetch failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    busInfoSheet?.updateTransitData(
+                        "Unavailable", "–", "Bus route unavailable: ${e.localizedMessage}"
+                    )
+                }
+            }
+        }
     }
 
     private fun drawRoute(map: MapLibreMap, routePoints: List<LatLng>) {
@@ -890,8 +1108,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 existing.updateData("–", "–", "Awaiting route data...")
             }
 
-            // Fetch real shade data and update the sheet when ready
-            fetchSunSide(origin, destination)
+            // Fetch bus route from OTP in parallel
+            fetchBusRouteFromOTP(origin, destination)
         }
     }
 
