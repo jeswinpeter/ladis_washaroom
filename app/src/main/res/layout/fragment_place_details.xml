@@ -1,37 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:background="@android:color/white">
+    android:background="?attr/colorSurface"
+    android:orientation="vertical">
 
-    <!-- Drag Handle -->
     <View
-        android:layout_width="40dp"
+        android:layout_width="36dp"
         android:layout_height="4dp"
         android:layout_gravity="center_horizontal"
         android:layout_marginTop="10dp"
         android:layout_marginBottom="10dp"
-        android:background="#CCCCCC" />
-
-    <!-- Header — always visible in collapsed/peek state -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingStart="20dp"
-        android:paddingEnd="20dp"
-        android:paddingBottom="14dp">
-        <Button
-            android:id="@+id/btnGetDirections"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Get Directions" />
-
-    </LinearLayout>
-
+        android:alpha="0.3"
+        android:background="?attr/colorOnSurfaceVariant" />
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -39,33 +22,46 @@
         android:orientation="vertical"
         android:paddingStart="20dp"
         android:paddingEnd="20dp"
-        android:paddingBottom="14dp">
+        android:paddingBottom="8dp">
 
         <TextView
             android:id="@+id/tvPlaceName"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
+            android:textColor="?attr/colorOnSurface"
             android:textSize="20sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black" />
+            android:textStyle="bold" />
 
         <TextView
             android:id="@+id/tvAddress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textColor="@android:color/darker_gray"
+            android:ellipsize="end"
             android:maxLines="2"
-            android:ellipsize="end" />
+            android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="13sp" />
     </LinearLayout>
 
-    <!-- Divider -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/btnGetDirections"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="16dp"
+        android:text="Get Directions"
+        android:textAllCaps="false"
+        app:cornerRadius="12dp"
+        app:icon="@android:drawable/ic_menu_directions"
+        app:iconGravity="textStart" />
+
     <View
         android:layout_width="match_parent"
         android:layout_height="1dp"
-        android:background="#EEEEEE" />
+        android:background="?attr/colorSurfaceVariant" />
 
-    <!-- Scrollable content: Wikipedia, coordinates, and action button -->
     <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -75,33 +71,47 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingStart="20dp"
-            android:paddingEnd="20dp"
             android:paddingTop="14dp"
+            android:paddingEnd="20dp"
             android:paddingBottom="32dp">
 
-            <!-- Wikipedia Summary -->
             <TextView
                 android:id="@+id/tvWikiSummary"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@android:color/black"
-                android:lineSpacingMultiplier="1.4" />
+                android:lineSpacingMultiplier="1.5"
+                android:textColor="?attr/colorOnSurface"
+                android:textSize="14sp" />
 
-            <!-- Coordinates -->
-            <TextView
-                android:id="@+id/tvCoordinates"
+            <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
-                android:textColor="@android:color/darker_gray" />
+                android:background="?attr/colorSurfaceVariant"
+                android:orientation="horizontal"
+                android:paddingStart="10dp"
+                android:paddingTop="6dp"
+                android:paddingEnd="10dp"
+                android:paddingBottom="6dp">
 
-            <!-- Open in Maps Button -->
-            <Button
+                <TextView
+                    android:id="@+id/tvCoordinates"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="monospace"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnOpenExternal"
+                style="@style/Widget.Material3.Button.OutlinedButton"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="16dp"
-                android:text="Open in Maps" />
+                android:text="Open in Maps"
+                android:textAllCaps="false"
+                app:cornerRadius="12dp" />
 
         </LinearLayout>
     </androidx.core.widget.NestedScrollView>
