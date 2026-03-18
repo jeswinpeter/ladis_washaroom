@@ -139,7 +139,7 @@ app.post('/api/fare', (req, res) => {
 });
 
 // API endpont for sit-in-shade. Returns advice
-app.get('/api/sun-side', (req, res) => {
+app.get('/'api/sun-side, (req, res) => {
   const { originLat, originLon, destLat, destLon, time } = req.query;
 
   if (!originLat || !originLon || !destLat || !destLon) {
