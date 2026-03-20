@@ -1,20 +1,20 @@
 package com.example.myapplication
 
 import android.os.Bundle
-import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.SwitchCompat
 import com.example.myapplication.R
+import com.google.android.material.card.MaterialCardView
 
 class SettingsActivity : AppCompatActivity() {
 
     lateinit var switchGPSAlarm: SwitchCompat
     lateinit var switchNotifications: SwitchCompat
-    lateinit var btnProfile: Button
-    lateinit var btnLocationSharing: Button
-    lateinit var btnAppDisplay: Button
-    lateinit var btnPrivacyPolicy: Button
+    lateinit var btnProfile: MaterialCardView
+    lateinit var btnLocationSharing: MaterialCardView
+    lateinit var btnAppDisplay: MaterialCardView
+    lateinit var btnPrivacyPolicy: MaterialCardView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

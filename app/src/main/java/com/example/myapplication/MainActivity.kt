@@ -21,7 +21,6 @@ import org.maplibre.android.maps.Style
 import android.view.LayoutInflater
 import android.view.inputmethod.EditorInfo
 import android.widget.EditText
-import androidx.cardview.widget.CardView
 import androidx.coordinatorlayout.widget.CoordinatorLayout
 import com.google.android.material.bottomsheet.BottomSheetBehavior
 import android.widget.ImageButton
@@ -57,6 +56,7 @@ import com.google.android.gms.common.api.ResolvableApiException
 import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import com.google.android.material.card.MaterialCardView
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
@@ -128,7 +128,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         // Inside onCreate, after setContentView(rootView)
         val btnMyLocation = findViewById<FloatingActionButton>(R.id.btnMyLocation)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
-        val directionsPanel = findViewById<CardView>(R.id.directionsPanel)
+        val directionsPanel = findViewById<MaterialCardView>(R.id.directionsPanel)
         val btnSearchOrigin = findViewById<ImageButton>(R.id.btnSearchOrigin)
         val btnSearchDestination = findViewById<ImageButton>(R.id.btnSearchDestination)
         val etOrigin = findViewById<EditText>(R.id.etOrigin)
@@ -156,7 +156,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         placeDetailsSheetBehavior.isHideable = true
 
         // Apply window insets to search bar
-        val searchBar = rootView.findViewById<CardView>(R.id.searchBar)
+        val searchBar = rootView.findViewById<MaterialCardView>(R.id.searchBar)
         ViewCompat.setOnApplyWindowInsetsListener(searchBar) { view, insets ->
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.updateLayoutParams<CoordinatorLayout.LayoutParams> {
@@ -278,7 +278,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                     removeMarker("start-source", "start-layer")
                     clearRoute()
                     updateCalculateButtonState()
-                    busInfoSheet?.updateData("–", "–", "Awaiting route data...")
+                    //busInfoSheet?.updateData("–", "–", "Awaiting route data...")
                 }
             }
 
@@ -311,7 +311,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                     destinationPoint = null
                     removeMarker("end-source", "end-layer")
                     updateCalculateButtonState()
-                    busInfoSheet?.updateData("–", "–", "Awaiting route data...")
+                   // busInfoSheet?.updateData("–", "–", "Awaiting route data...")
                 }
             }
 
@@ -1114,11 +1114,12 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 sheet.show(supportFragmentManager, "BusInfo")
                 busInfoSheet = sheet
             } else {
-                existing.updateData("–", "–", "Awaiting route data...")
+                //existing.updateData("–", "–", "Awaiting route data...")
             }
 
             // Fetch bus route from OTP in parallel
             fetchBusRouteFromOTP(origin, destination)
+            fetchSunSide(origin, destination)
         }
     }
 
@@ -1158,8 +1159,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     }
 
     private fun resetDirectionsPanel(
-        directionsPanel: CardView,
-        searchBar: CardView,
+        directionsPanel: MaterialCardView,
+        searchBar: MaterialCardView,
         etOrigin: EditText,
         etDestination: EditText,
         btnSearchOrigin: ImageButton,
@@ -1254,7 +1255,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
     override fun onGetDirectionsClicked() {
-        val searchBar = findViewById<CardView>(R.id.searchBar)
+        val searchBar = findViewById<MaterialCardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val closeDirections = findViewById<View>(R.id.btnCloseDirections)
         val directionsPanel = findViewById<View>(R.id.directionsPanel)
