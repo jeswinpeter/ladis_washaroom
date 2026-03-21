@@ -1,37 +1,37 @@
+const fs = require('fs');
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-});
-
-const OVERPASS_URL = 'https://overpass-api.de/api/interpreter?data=[out:json][timeout:60];node[highway=bus_stop](8.18,74.85,12.77,77.42);out body;';
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 
 async function run() {
-    console.log('Fetching OSM bus stops from Overpass...');
-    const response = await fetch(OVERPASS_URL);
-    if (!response.ok) {
-        throw new Error(`Overpass request failed: ${response.status}`);
-    }
-
-    const payload = await response.json();
-    const nodes = Array.isArray(payload.elements) ? payload.elements : [];
-    console.log(`Received ${nodes.length} nodes`);
+    const raw = fs.readFileSync('./scripts/kerala_stops.geojson', 'utf8');
+    const data = JSON.parse(raw);
+    const nodes = data.features || data.elements || [];
+    console.log(`Loaded ${nodes.length} stops from file`);
 
     let inserted = 0;
     for (const node of nodes) {
-        const stopId = `OSM_${node.id}`;
-        const stopName = (node.tags && (node.tags.name || node.tags['name:en'])) || 'Unnamed Stop';
+        // GeoJSON format from overpass-turbo
+        const props = node.properties || node.tags || {};
+        const lat = node.geometry?.coordinates[1] ?? node.lat;
+        const lon = node.geometry?.coordinates[0] ?? node.lon;
+        const stopId = `OSM_${props['@id']?.replace('node/', '') || node.id}`;
+        const stopName =
+            props['name:en'] || props['name'] || props['name:ml'] ||
+            props['description'] || props['ref'] ||
+            `Stop @ ${parseFloat(lat).toFixed(5)},${parseFloat(lon).toFixed(5)}`;
+
         await pool.query(
             `INSERT INTO gtfs_stops (stop_id, stop_name, stop_lat, stop_lon, source, confidence)
        VALUES ($1,$2,$3,$4,'official',5)
        ON CONFLICT (stop_id) DO NOTHING`,
-            [stopId, stopName, node.lat, node.lon]
+            [stopId, stopName, lat, lon]
         );
-        inserted += 1;
+        inserted++;
     }
 
-    console.log(`Processed ${inserted} stops`);
+    console.log(`Inserted ${inserted} stops`);
     await pool.end();
 }
 
