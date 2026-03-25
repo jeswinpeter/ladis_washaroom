@@ -11,9 +11,11 @@
 .DS_Store
 /build
 /captures
+/otp/data/kerala-latest.osm.pbf
 .externalNativeBuild
 .cxx
 local.properties
+backend/node_modules/  
 
 # Kotlin compiler and plugin data
 .kotlin/
