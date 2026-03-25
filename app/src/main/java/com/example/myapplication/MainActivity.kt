@@ -71,7 +71,8 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
 import org.maplibre.geojson.Point
-class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener,GpsAlarmFragment.RadiusListener{
+
+class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
     private var radiusMeters = 100
 
     // Declare a variable for MapView
@@ -891,22 +892,25 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
     private fun updateAlarmRadius(radius: Int) {
 
-        val location = mapLibreMap.locationComponent.lastKnownLocation ?: return
+        val location = mapLibreMap.locationComponent.lastKnownLocation
+
+        if (location == null) {
+            Log.e("GPS_ALARM", "Location is null")
+            return
+        }
+        val style = mapLibreMap.style ?: return
 
         val point = Point.fromLngLat(location.longitude, location.latitude)
-
-        val style = mapLibreMap.style ?: return
+        val feature = Feature.fromGeometry(point)
 
         if (style.getSource("radius-source") == null) {
 
-            style.addSource(
-                GeoJsonSource("radius-source", Feature.fromGeometry(point))
-            )
+            val source = GeoJsonSource("radius-source", feature)
+            style.addSource(source)
 
             val circleLayer = CircleLayer("radius-layer", "radius-source")
                 .withProperties(
-                    circleRadius(radius.toFloat() / 3f),
-                    circleColor("#5533A1FF"),
+                    circleRadius(radius.toFloat() / 10f),
                     circleStrokeColor("#3366FF"),
                     circleStrokeWidth(3f)
                 )
@@ -915,15 +919,20 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
         } else {
 
-            val layer = style.getLayer("radius-layer") as CircleLayer
+            val source = style.getSourceAs<GeoJsonSource>("radius-source")
+            source?.setGeoJson(feature)
 
+            val layer = style.getLayer("radius-layer") as CircleLayer
             layer.setProperties(circleRadius(radius.toFloat() / 3f))
         }
     }
     override fun onRadiusChanged(radiusMeters: Int) {
 
-        updateAlarmRadius(radiusMeters)
+        this.radiusMeters = radiusMeters   // ✅ update global value
 
+        Log.d("GPS_ALARM", "Radius changed: $radiusMeters")
+
+        updateAlarmRadius(radiusMeters)
     }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
 
@@ -1060,7 +1069,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         mapView.onSaveInstanceState(outState)
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    override fun onGetDirectionsClicked() {
+fun onGetDirectionsClicked() {
         val searchBar = findViewById<CardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val closeDirections = findViewById<View>(R.id.btnCloseDirections)

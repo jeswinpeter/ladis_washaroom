@@ -19,7 +19,10 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
 
     override fun onAttach(context: Context) {
         super.onAttach(context)
-        listener = context as? RadiusListener
+
+        if (context is RadiusListener) {
+            listener = context
+        }
     }
 
     override fun onCreateView(
@@ -31,7 +34,10 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
         val view = inflater.inflate(R.layout.fragment_gps_alarm, container, false)
 
         val seekBar = view.findViewById<SeekBar>(R.id.seekRadius)
-        val txtRadius = view.findViewById<TextView>(R.id.txtRadius)
+        val txtRadius = view.findViewById<TextView>(R.id.txtRadius)  // ✅ ADD THIS
+
+        txtRadius.text = "${seekBar.progress} m"
+
 
         val btnCancel = view.findViewById<Button>(R.id.btnCancelAlarm)
         val btnSet = view.findViewById<Button>(R.id.btnSetAlarm)
@@ -43,6 +49,7 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
                 txtRadius.text = "$progress m"
 
                 listener?.onRadiusChanged(progress)
+
             }
 
             override fun onStartTrackingTouch(seekBar: SeekBar?) {}
