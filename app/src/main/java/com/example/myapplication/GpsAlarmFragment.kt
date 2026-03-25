@@ -13,6 +13,7 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
 
     interface RadiusListener {
         fun onRadiusChanged(radiusMeters: Int)
+        fun onCancelAlarm()   // ✅ ADD HERE
     }
 
     private var listener: RadiusListener? = null
@@ -58,6 +59,7 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
         })
 
         btnCancel.setOnClickListener {
+            listener?.onCancelAlarm()   // ✅ ADD HERE
             dismiss()
         }
 

@@ -75,7 +75,7 @@ import org.maplibre.geojson.Point
 import java.io.OutputStreamWriter
 import java.time.Instant
 
-class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
+class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
     private var radiusMeters = 100
 
     // Declare a variable for MapView
@@ -88,6 +88,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
     private var busInfoSheet: BusInfoBottomSheetFragment? = null
+    var isAlarmActive = false
 
 
 
@@ -218,9 +219,14 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
             //Change GPS Alarm
             btnGpsAlarm.setOnClickListener {
 
+                if (!isLocationEnabled) {
+                    handleMyLocationClick()   // ✅ enable GPS first
+                    Toast.makeText(this, "Turn on GPS first", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
                 val fragment = GpsAlarmFragment()
                 fragment.show(supportFragmentManager, "GPS_ALARM")
-
             }
 
             // Fare Calculator FAB (defined in XML)
@@ -1091,17 +1097,21 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
         }
     }
 
+
+
     private fun updateAlarmRadius(radius: Int) {
 
-        val location = mapLibreMap.locationComponent.lastKnownLocation
-
-        if (location == null) {
-            Log.e("GPS_ALARM", "Location is null")
+        // ✅ CHECK 1: destination must be set
+        val dest = destinationPoint
+        if (dest == null) {
+            Toast.makeText(this, "Set a destination first", Toast.LENGTH_SHORT).show()
             return
         }
+
         val style = mapLibreMap.style ?: return
 
-        val point = Point.fromLngLat(location.longitude, location.latitude)
+        // ✅ Circle is centered on the DESTINATION, not current location
+        val point = Point.fromLngLat(dest.longitude, dest.latitude)
         val feature = Feature.fromGeometry(point)
 
         if (style.getSource("radius-source") == null) {
@@ -1112,8 +1122,9 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
             val circleLayer = CircleLayer("radius-layer", "radius-source")
                 .withProperties(
                     circleRadius(radius.toFloat() / 10f),
+                    circleColor("rgba(0,0,0,0)"),
                     circleStrokeColor("#3366FF"),
-                    circleStrokeWidth(3f)
+                    circleStrokeWidth(1f)
                 )
 
             style.addLayer(circleLayer)
@@ -1124,16 +1135,45 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener{
             source?.setGeoJson(feature)
 
             val layer = style.getLayer("radius-layer") as CircleLayer
-            layer.setProperties(circleRadius(radius.toFloat() / 3f))
+            layer.setProperties(
+                circleRadius(radius.toFloat() / 10f),
+                circleColor("rgba(0,0,0,0)"),
+                circleStrokeColor("#3366FF"),
+                circleStrokeWidth(2f)
+            )
         }
     }
+
     override fun onRadiusChanged(radiusMeters: Int) {
 
-        this.radiusMeters = radiusMeters   // ✅ update global value
-
-        Log.d("GPS_ALARM", "Radius changed: $radiusMeters")
+        this.radiusMeters = radiusMeters
 
         updateAlarmRadius(radiusMeters)
+
+        adjustMapZoom(radiusMeters)
+    }
+    override fun onCancelAlarm() {
+        mapLibreMap.style?.let { style ->
+            style.removeLayer("radius-layer")
+            style.removeSource("radius-source")
+        }
+        isAlarmActive = false
+        Toast.makeText(this, "Alarm Cancelled", Toast.LENGTH_SHORT).show()
+    }
+    private fun adjustMapZoom(radius: Int) {
+        val dest = destinationPoint ?: return   // ✅ zoom to destination
+
+        val zoom = when {
+            radius <= 200  -> 16.0
+            radius <= 500  -> 15.0
+            radius <= 1000 -> 14.0
+            radius <= 2000 -> 13.0
+            else           -> 12.0
+        }
+
+        mapLibreMap.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(dest, zoom), 500
+        )
     }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
 
