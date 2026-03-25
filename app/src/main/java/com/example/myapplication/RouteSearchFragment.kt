@@ -16,6 +16,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import android.widget.ImageButton
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -69,6 +70,44 @@ class RouteSearchFragment : Fragment() {
             setBackgroundColor(Color.WHITE)
             setPadding(dp(16), dp(16), dp(16), dp(16))
         }
+
+        val handleRow = LinearLayout(ctx).apply {
+    orientation = LinearLayout.HORIZONTAL
+    gravity = Gravity.CENTER
+    layoutParams = LinearLayout.LayoutParams(
+        LinearLayout.LayoutParams.MATCH_PARENT,
+        LinearLayout.LayoutParams.WRAP_CONTENT
+    )
+}
+val handle = View(ctx).apply {
+    background = roundedRect(medGrey, 3f)
+    layoutParams = LinearLayout.LayoutParams(dp(40), dp(4)).apply {
+        topMargin = dp(8)
+        bottomMargin = dp(8)
+    }
+}
+handleRow.addView(handle)
+root.addView(handleRow) 
+
+        val topBar = LinearLayout(ctx).apply {
+    orientation = LinearLayout.HORIZONTAL
+    gravity = Gravity.END
+}
+val closeBtn = ImageButton(ctx).apply {
+    setImageResource(android.R.drawable.ic_menu_close_clear_cancel)
+    setBackgroundColor(Color.TRANSPARENT)
+}
+closeBtn.setOnClickListener {
+    // Hide the bottom sheet entirely
+    val activity = requireActivity() as? androidx.appcompat.app.AppCompatActivity
+    val sheet = activity?.findViewById<android.widget.LinearLayout>(R.id.placeDetailsSheet)
+    sheet?.let {
+        com.google.android.material.bottomsheet.BottomSheetBehavior.from(it).state =
+            com.google.android.material.bottomsheet.BottomSheetBehavior.STATE_HIDDEN
+    }
+}
+topBar.addView(closeBtn)
+root.addView(topBar)
 
         val title = TextView(ctx).apply {
             text = "Find your bus"
