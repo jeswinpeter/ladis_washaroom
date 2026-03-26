@@ -212,11 +212,18 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 toggleMapStyle()
             }
 
-            // Fare Calculator FAB (defined in XML)
             val btnFare = rootView.findViewById<FloatingActionButton>(R.id.btnFareCalc)
             btnFare?.setOnClickListener {
                 supportFragmentManager.beginTransaction()
                     .replace(R.id.placeDetailsContainer, FareCalculatorFragment(), "FareCalc")
+                    .commit()
+                placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+
+            val btnContribute = rootView.findViewById<FloatingActionButton>(R.id.btnContribute)
+            btnContribute?.setOnClickListener {
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.placeDetailsContainer, RouteSearchFragment(), "RouteSearch")
                     .commit()
                 placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
             }
@@ -1119,11 +1126,11 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
             // Fetch bus route from OTP in parallel
             fetchBusRouteFromOTP(origin, destination)
-            fetchSunSide(origin, destination)
+            checkSunSide(origin, destination)
         }
     }
 
-    private fun fetchSunSide(origin: LatLng, destination: LatLng) {
+    /*private fun fetchSunSide(origin: LatLng, destination: LatLng) {
         val url = "http://10.0.2.2:3001/api/sun-side" +
             "?originLat=${origin.latitude}" +
             "&originLon=${origin.longitude}" +
@@ -1156,7 +1163,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 }
             }
         })
-    }
+    }*/
 
     private fun resetDirectionsPanel(
         directionsPanel: MaterialCardView,

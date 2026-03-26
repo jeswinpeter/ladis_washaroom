@@ -238,9 +238,9 @@
     <com.google.android.material.card.MaterialCardView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|start"
+        android:layout_gravity="top|start"
         android:layout_marginStart="16dp"
-        android:layout_marginBottom="100dp"
+        android:layout_marginTop="100dp"
         app:cardCornerRadius="24dp"
         app:cardElevation="4dp">
 
@@ -309,6 +309,24 @@
             android:layout_marginBottom="12dp"
             android:contentDescription="Change Style"
             android:src="@android:drawable/ic_menu_mapmode"
+            app:fabSize="mini" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnContribute"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Contribute Route Data"
+            android:src="@android:drawable/ic_input_add"
+            app:fabSize="mini" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnFareCalc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Fare Calculator"
+            android:src="@android:drawable/ic_menu_compass"
             app:fabSize="mini" />
 
         <!-- Fare Calculator Button -->
