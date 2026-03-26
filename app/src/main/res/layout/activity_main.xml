@@ -329,6 +329,17 @@
             android:src="@android:drawable/ic_menu_compass"
             app:fabSize="mini" />
 
+        <!-- Fare Calculator Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnFareCalc"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:contentDescription="Fare Calculator"
+            android:src="@drawable/ic_fare_auto"
+            app:tint="@null" />
+
+        <!-- My Location Button -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnMyLocation"
             android:layout_width="wrap_content"
