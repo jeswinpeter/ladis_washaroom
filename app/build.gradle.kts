@@ -52,6 +52,7 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation("com.google.android.gms:play-services-location:21.0.1")
     implementation("org.maplibre.gl:android-sdk:11.8.0")
+    implementation("org.maplibre.gl:android-plugin-annotation-v9:1.0.0")
     implementation(libs.play.services.basement)
     implementation(libs.androidx.preference)
     testImplementation(libs.junit)

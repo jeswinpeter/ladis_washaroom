@@ -57,10 +57,16 @@ import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.card.MaterialCardView
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.expressions.Expression.exponential
+import org.maplibre.android.style.expressions.Expression.interpolate
+import org.maplibre.android.style.expressions.Expression.stop
+import org.maplibre.android.style.expressions.Expression.zoom
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleOpacity
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
@@ -76,7 +82,21 @@ import org.maplibre.geojson.Point
 import java.io.OutputStreamWriter
 import java.time.Instant
 
-class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsClickListener {
+class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
+    private fun playAlarmSound() {
+
+        val prefs = getSharedPreferences("GPS_ALARM", MODE_PRIVATE)
+        val uriString = prefs.getString("ringtone_uri", null)
+
+        val uri = if (uriString != null)
+            android.net.Uri.parse(uriString)
+        else
+            android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+
+        val ringtone = android.media.RingtoneManager.getRingtone(this, uri)
+        ringtone.play()
+    }
+    private var radiusMeters = 100
 
     // Declare a variable for MapView
     private lateinit var mapView: MapView
@@ -85,9 +105,64 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     private var isLocationEnabled = false
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+
+    @SuppressLint("MissingPermission")
+    fun startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, "Location permission not granted", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 3000
+        ).build()
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val location = locationResult.lastLocation ?: return
+                checkIfReachedDestination(location.latitude, location.longitude)
+            }
+        }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            mainLooper
+        )
+    }
+
+    private fun checkIfReachedDestination(currentLat: Double, currentLon: Double) {
+        val dest = destinationPoint ?: return
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(
+            currentLat, currentLon,
+            dest.latitude, dest.longitude,
+            results
+        )
+        val distance = results[0]
+        if (distance <= radiusMeters && isAlarmActive) {
+            playAlarmSound()
+            isAlarmActive = false
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            Toast.makeText(this, "Destination reached!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
     private var routeInfoSheet: RouteInfoBottomSheetFragment? = null
+    var isAlarmActive = false
+
+
 
 
     @SuppressLint("MissingPermission")
@@ -137,6 +212,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         val btnCalculateRoute = findViewById<Button>(R.id.btnCalculateRoute)
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
+        val btnGpsAlarm = findViewById<FloatingActionButton>(R.id.btnGpsAlarm)
 
         /*btnGetDirections.setOnClickListener {
             val searchBar = findViewById<CardView>(R.id.searchBar)
@@ -213,6 +289,20 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                 toggleMapStyle()
             }
 
+            //Change GPS Alarm
+            btnGpsAlarm.setOnClickListener {
+
+                if (!isLocationEnabled) {
+                    handleMyLocationClick()   // ✅ enable GPS first
+                    Toast.makeText(this, "Turn on GPS first", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val fragment = GpsAlarmFragment()
+                fragment.show(supportFragmentManager, "GPS_ALARM")
+            }
+
+            // Fare Calculator FAB (defined in XML)
             val btnFare = rootView.findViewById<FloatingActionButton>(R.id.btnFareCalc)
             btnFare?.setOnClickListener {
                 supportFragmentManager.beginTransaction()
@@ -1122,6 +1212,93 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         }
     }
 
+
+
+    private fun updateAlarmRadius(radius: Int) {
+        val dest = destinationPoint
+        if (dest == null) {
+            Toast.makeText(this, "Set a destination first", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        val style = mapLibreMap.style ?: return
+        val point = Point.fromLngLat(dest.longitude, dest.latitude)
+        val feature = Feature.fromGeometry(point)
+
+        // Converts real-world meters → pixels at each zoom level for the destination's latitude
+        fun metersToPixelsExpression(meters: Int): Expression {
+            val lat = dest.latitude
+            // Earth's circumference in meters at the given latitude
+            val metersPerPixelAtZoom0 = 78271.484 * Math.cos(Math.toRadians(lat))
+            return interpolate(
+                exponential(2),
+                zoom(),
+                *Array(22) { z ->
+                    val pixelsAtZoom = meters / (metersPerPixelAtZoom0 / Math.pow(2.0, z.toDouble()))
+                    stop(z, pixelsAtZoom.toFloat())
+                }
+            )
+        }
+
+        if (style.getSource("radius-source") == null) {
+            val source = GeoJsonSource("radius-source", feature)
+            style.addSource(source)
+
+            val circleLayer = CircleLayer("radius-layer", "radius-source")
+                .withProperties(
+                    circleRadius(metersToPixelsExpression(radius)),
+                    circleColor("rgba(0, 0, 0, 0)"),
+                    circleStrokeColor("#3366FF"),
+                    circleStrokeWidth(2f),
+                    circleOpacity(0.15f)
+                )
+            style.addLayer(circleLayer)
+        } else {
+            val source = style.getSourceAs<GeoJsonSource>("radius-source")
+            source?.setGeoJson(feature)
+
+            val layer = style.getLayer("radius-layer") as? CircleLayer
+            layer?.setProperties(
+                circleRadius(metersToPixelsExpression(radius)),
+                circleColor("rgba(0, 0, 0, 0)"),
+                circleStrokeColor("#3366FF"),
+                circleStrokeWidth(2f),
+                circleOpacity(0.15f)
+            )
+        }
+    }
+
+    override fun onRadiusChanged(radiusMeters: Int) {
+
+        this.radiusMeters = radiusMeters
+
+        updateAlarmRadius(radiusMeters)
+
+        adjustMapZoom(radiusMeters)
+    }
+    override fun onCancelAlarm() {
+        mapLibreMap.style?.let { style ->
+            style.removeLayer("radius-layer")
+            style.removeSource("radius-source")
+        }
+        isAlarmActive = false
+        Toast.makeText(this, "Alarm Cancelled", Toast.LENGTH_SHORT).show()
+    }
+    private fun adjustMapZoom(radius: Int) {
+        val dest = destinationPoint ?: return   // ✅ zoom to destination
+
+        val zoom = when {
+            radius <= 200  -> 16.0
+            radius <= 500  -> 15.0
+            radius <= 1000 -> 14.0
+            radius <= 2000 -> 13.0
+            else           -> 12.0
+        }
+
+        mapLibreMap.animateCamera(
+            CameraUpdateFactory.newLatLngZoom(dest, zoom), 500
+        )
+    }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
         fetchRouteFromOSRM(origin, destination) { response ->
             val json = JSONObject(response)
@@ -1351,7 +1528,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         mapView.onSaveInstanceState(outState)
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    override fun onGetDirectionsClicked() {
+fun onGetDirectionsClicked() {
         val searchBar = findViewById<MaterialCardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val closeDirections = findViewById<View>(R.id.btnCloseDirections)
