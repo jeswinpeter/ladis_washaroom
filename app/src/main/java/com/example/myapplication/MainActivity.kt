@@ -74,6 +74,7 @@ import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.visibility
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
@@ -158,7 +159,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
 
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
-    private var busInfoSheet: BusInfoBottomSheetFragment? = null
+    private var routeInfoSheet: RouteInfoBottomSheetFragment? = null
     var isAlarmActive = false
 
 
@@ -306,6 +307,14 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
             btnFare?.setOnClickListener {
                 supportFragmentManager.beginTransaction()
                     .replace(R.id.placeDetailsContainer, FareCalculatorFragment(), "FareCalc")
+                    .commit()
+                placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
+            }
+
+            val btnContribute = rootView.findViewById<FloatingActionButton>(R.id.btnContribute)
+            btnContribute?.setOnClickListener {
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.placeDetailsContainer, RouteSearchFragment(), "RouteSearch")
                     .commit()
                 placeDetailsSheetBehavior.state = BottomSheetBehavior.STATE_EXPANDED
             }
@@ -785,8 +794,8 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
                         else    -> "–"
                     }
                     runOnUiThread {
-                        busInfoSheet?.let {
-                            if (it.isAdded) it.updateData(sitSide, sunPosition, advice)
+                        routeInfoSheet?.let {
+                            if (it.isAdded) it.updateSunSide(sitSide, sunPosition, advice)
                         }
                     }
                 } catch (e: Exception) {
@@ -982,27 +991,36 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val query = """
-                {
-                  plan(
-                    from: {lat: ${origin.latitude}, lon: ${origin.longitude}}
-                    to: {lat: ${destination.latitude}, lon: ${destination.longitude}}
-                    numItineraries: 1
-                    transportModes: [
-                      {mode: BUS}, {mode: WALK}, {mode: TRAM},
-                      {mode: SUBWAY}, {mode: FERRY}
-                    ]
-                  ) {
-                    itineraries {
-                      duration
-                      legs {
-                        mode
-                        legGeometry { points }
-                        route { shortName }
+                    {
+                      plan(
+                        from: {lat: ${origin.latitude}, lon: ${origin.longitude}}
+                        to: {lat: ${destination.latitude}, lon: ${destination.longitude}}
+                        numItineraries: 1
+                        transportModes: [
+                          {mode: BUS}, {mode: WALK}, {mode: TRAM},
+                          {mode: SUBWAY}, {mode: FERRY}
+                        ]
+                      ) {
+                        itineraries {
+                          duration
+                          legs {
+                            mode
+                            distance
+                            legGeometry { points }
+                            from { name }
+                            to { name }
+                            route {
+                              shortName
+                              longName
+                              agency {
+                                name
+                              }
+                            }
+                          }
+                        }
                       }
                     }
-                  }
-                }
-            """.trimIndent()
+                """.trimIndent()
 
                 val requestBody = JSONObject().put("query", query).toString()
 
@@ -1029,7 +1047,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
 
                 if (itineraries == null || itineraries.length() == 0) {
                     withContext(Dispatchers.Main) {
-                        busInfoSheet?.updateTransitData("No route", "–", "No transit route found")
+                        routeInfoSheet?.updateTransitData("No route", "–", "No transit route found")
                     }
                     return@launch
                 }
@@ -1042,45 +1060,70 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
 
                 val allPoints = mutableListOf<LatLng>()
                 val legParts = mutableListOf<String>()
-                var routeInfo = "Transit"
+                var primaryRoute = "Transit"
                 var firstTransit = true
 
                 for (i in 0 until legs.length()) {
                     val leg = legs.getJSONObject(i)
-                    val mode = leg.optString("mode", "WALK")
+                    val mode = leg.optString("mode", "WALK").uppercase()
                     val encoded = leg.optJSONObject("legGeometry")?.optString("points", "") ?: ""
+                    val distanceM = leg.optDouble("distance", 0.0).toInt()
 
                     if (encoded.isNotBlank()) {
                         allPoints.addAll(decodePolyline(encoded))
                     }
 
-                    when (mode.uppercase()) {
-                        "WALK" -> legParts.add("Walk")
-                        "BUS" -> {
-                            // GraphQL response has route as a nested object
-                            val route = leg.optJSONObject("route")?.optString("shortName", "Bus") ?: "Bus"
-                            legParts.add("Bus $route")
+                    val fromName = leg.optJSONObject("from")?.optString("name", "")?.takeIf { it.isNotBlank() && it != "Origin" }
+                    val toName   = leg.optJSONObject("to")?.optString("name", "")?.takeIf   { it.isNotBlank() && it != "Destination" }
+
+                    when (mode) {
+                        "WALK" -> {
+                            val distStr = if (distanceM > 0) " ~${distanceM}m" else ""
+                            legParts.add("🚶 Walk$distStr")
+                        }
+                        "BUS", "TRAM", "SUBWAY", "FERRY" -> {
+                            val routeObj   = leg.optJSONObject("route")
+                            val agencyName = routeObj?.optJSONObject("agency")?.optString("name", "")?.takeIf { it.isNotBlank() }
+                            val longName   = routeObj?.optString("longName", "")?.takeIf { it.isNotBlank() }
+
+                            val routeLabel = listOfNotNull(longName, agencyName).joinToString(", ")
+                                .ifBlank { mode.lowercase().replaceFirstChar { it.uppercase() } }
+
+                            val emoji = when (mode) {
+                                "TRAM"   -> "🚋"
+                                "SUBWAY" -> "🚇"
+                                "FERRY"  -> "⛴"
+                                else     -> "🚌"
+                            }
+
+                            val stopDetail = when {
+                                fromName != null && toName != null -> " ($fromName → $toName)"
+                                toName   != null                  -> " (to $toName)"
+                                else                              -> ""
+                            }
+                            legParts.add("$emoji $routeLabel$stopDetail")
+
                             if (firstTransit) {
-                                routeInfo = "Bus $route"
+                                primaryRoute = longName ?: agencyName ?: "Transit"
                                 firstTransit = false
                             }
                         }
-                        else -> legParts.add(mode)
+                        else -> legParts.add(mode.lowercase().replaceFirstChar { it.uppercase() })
                     }
                 }
 
-                val legsDesc = legParts.joinToString(" → ")
+                val legsDesc   = legParts.joinToString("  →  ")
                 val durationStr = if (durationMin > 0) "$durationMin min" else "–"
 
                 withContext(Dispatchers.Main) {
                     if (allPoints.isNotEmpty()) drawBusRoute(allPoints)
-                    busInfoSheet?.updateTransitData(routeInfo, durationStr, legsDesc)
+                    routeInfoSheet?.updateTransitData(primaryRoute, durationStr, legsDesc)
                 }
 
             } catch (e: Exception) {
                 Log.e("OTP", "Bus route fetch failed: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    busInfoSheet?.updateTransitData(
+                    routeInfoSheet?.updateTransitData(
                         "Unavailable", "–", "Bus route unavailable: ${e.localizedMessage}"
                     )
                 }
@@ -1129,11 +1172,11 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
     ) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val url =
-                    "https://router.project-osrm.org/route/v1/driving/" +
-                            "${origin.longitude},${origin.latitude};" +
-                            "${destination.longitude},${destination.latitude}" +
-                            "?overview=full&geometries=geojson"
+                // In fetchRouteFromOSRM — update the URL
+                val url = "https://router.project-osrm.org/route/v1/driving/" +
+                        "${origin.longitude},${origin.latitude};" +
+                        "${destination.longitude},${destination.latitude}" +
+                        "?overview=full&geometries=geojson&steps=true"   // ← add steps=true
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
@@ -1257,49 +1300,104 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         )
     }
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
-
         fetchRouteFromOSRM(origin, destination) { response ->
-
             val json = JSONObject(response)
-
-            val routes = json.getJSONArray("routes")
-            val route = routes.getJSONObject(0)
-
+            val route = json.getJSONArray("routes").getJSONObject(0)
             val geometry = route.getJSONObject("geometry")
             val coordinates = geometry.getJSONArray("coordinates")
 
             val routePoints = mutableListOf<LatLng>()
-
             for (i in 0 until coordinates.length()) {
-
                 val point = coordinates.getJSONArray(i)
-
-                val lon = point.getDouble(0)
-                val lat = point.getDouble(1)
-
-                routePoints.add(LatLng(lat, lon))
+                routePoints.add(LatLng(point.getDouble(1), point.getDouble(0)))
             }
-
             drawRoute(mapLibreMap, routePoints)
             addOrUpdateCircleMarker(origin.latitude, origin.longitude, "start-source", "start-layer", "#007AFF")
 
-            // Show or update the Bus Info bottom sheet with placeholder data
-            val existing = busInfoSheet
-            if (existing == null || !existing.isAdded) {
-                val sheet = BusInfoBottomSheetFragment.newInstance()
-                sheet.show(supportFragmentManager, "BusInfo")
-                busInfoSheet = sheet
-            } else {
-                //existing.updateData("–", "–", "Awaiting route data...")
+            // Parse turn-by-turn steps
+            val steps = mutableListOf<RouteStep>()
+            val legs = route.optJSONArray("legs")
+            if (legs != null) {
+                for (i in 0 until legs.length()) {
+                    val legSteps = legs.getJSONObject(i).optJSONArray("steps") ?: continue
+                    for (j in 0 until legSteps.length()) {
+                        val s = legSteps.getJSONObject(j)
+                        val maneuver = s.optJSONObject("maneuver")
+                        val name = s.optString("name", "").ifBlank { "Continue" }
+                        val modifier = maneuver?.optString("modifier", "") ?: ""
+                        val type = maneuver?.optString("type", "") ?: ""
+                        val distanceM = s.optDouble("distance", 0.0).toInt()
+                        steps.add(RouteStep(name, type, modifier, distanceM))
+                    }
+                }
             }
 
-            // Fetch bus route from OTP in parallel
+            val distanceKm = String.format("%.1f", route.optDouble("distance", 0.0) / 1000)
+            val durationMin = (route.optDouble("duration", 0.0) / 60).toInt()
+
+            val existing = routeInfoSheet
+            if (existing == null || !existing.isAdded) {
+                val sheet = RouteInfoBottomSheetFragment.newInstance()
+                sheet.show(supportFragmentManager, "RouteInfo")
+                routeInfoSheet = sheet
+            }
+            routeInfoSheet?.setDrivingData(steps, durationMin, distanceKm)
+
             fetchBusRouteFromOTP(origin, destination)
-            fetchSunSide(origin, destination)
+            checkSunSide(origin, destination)
         }
     }
 
-    private fun fetchSunSide(origin: LatLng, destination: LatLng) {
+    // Simple data class
+    data class RouteStep(
+        val streetName: String,
+        val type: String,       // "turn", "depart", "arrive", etc.
+        val modifier: String,   // "left", "right", "straight", etc.
+        val distanceMeters: Int
+    ) {
+        val icon: String get() = when {
+            type == "arrive"                    -> "⊙"
+            type == "depart"                    -> "↑"
+            modifier == "left"                  -> "↰"
+            modifier == "right"                 -> "↱"
+            modifier == "sharp left"            -> "↩"
+            modifier == "sharp right"           -> "↪"
+            modifier == "slight left"           -> "↖"
+            modifier == "slight right"          -> "↗"
+            modifier.contains("uturn")         -> "↺"
+            else                               -> "↑"
+        }
+
+        val label: String get() = when (type) {
+            "depart" -> "Head ${modifier.ifBlank { "forward" }} on $streetName"
+            "arrive" -> "Arrive at destination"
+            "turn"   -> "Turn $modifier onto $streetName"
+            "roundabout", "rotary" -> "Take the roundabout onto $streetName"
+            "merge"  -> "Merge onto $streetName"
+            "fork"   -> "Keep $modifier at the fork"
+            else     -> if (streetName.isNotBlank()) "Continue on $streetName" else "Continue"
+        }
+
+        val distanceLabel: String get() = when {
+            distanceMeters == 0      -> ""
+            distanceMeters < 1000   -> "${distanceMeters}m"
+            else                    -> String.format("%.1f km", distanceMeters / 1000.0)
+        }
+    }
+
+    // INSIDE MainActivity class, alongside drawRoute / drawBusRoute / clearRoute
+    fun onMapModeChanged(mode: RouteInfoBottomSheetFragment.Mode) {
+        val style = mapLibreMap.style ?: return
+        val showDriving = mode == RouteInfoBottomSheetFragment.Mode.DRIVING
+        style.getLayer("route-layer")?.setProperties(
+            visibility(if (showDriving) Property.VISIBLE else Property.NONE)
+        )
+        style.getLayer("bus-route-layer")?.setProperties(
+            visibility(if (showDriving) Property.NONE else Property.VISIBLE)
+        )
+    }
+
+    /*private fun fetchSunSide(origin: LatLng, destination: LatLng) {
         val url = "http://10.0.2.2:3001/api/sun-side" +
             "?originLat=${origin.latitude}" +
             "&originLon=${origin.longitude}" +
@@ -1332,7 +1430,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
                 }
             }
         })
-    }
+    }*/
 
     private fun resetDirectionsPanel(
         directionsPanel: MaterialCardView,
@@ -1371,8 +1469,8 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         removeMarker("end-source", "end-layer")
         clearRoute()
 
-        busInfoSheet?.dismiss()
-        busInfoSheet = null
+        routeInfoSheet?.dismiss()
+        routeInfoSheet = null
     }
 
 // Map style changing
