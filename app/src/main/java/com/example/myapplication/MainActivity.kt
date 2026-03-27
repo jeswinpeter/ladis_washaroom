@@ -57,10 +57,16 @@ import com.google.android.gms.location.*
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import com.google.android.material.card.MaterialCardView
+import org.maplibre.android.style.expressions.Expression
+import org.maplibre.android.style.expressions.Expression.exponential
+import org.maplibre.android.style.expressions.Expression.interpolate
+import org.maplibre.android.style.expressions.Expression.stop
+import org.maplibre.android.style.expressions.Expression.zoom
 import org.maplibre.android.style.layers.CircleLayer
 import org.maplibre.android.style.layers.LineLayer
 import org.maplibre.android.style.layers.Property
 import org.maplibre.android.style.layers.PropertyFactory.circleColor
+import org.maplibre.android.style.layers.PropertyFactory.circleOpacity
 import org.maplibre.android.style.layers.PropertyFactory.circleRadius
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeColor
 import org.maplibre.android.style.layers.PropertyFactory.circleStrokeWidth
@@ -76,6 +82,19 @@ import java.io.OutputStreamWriter
 import java.time.Instant
 
 class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
+    private fun playAlarmSound() {
+
+        val prefs = getSharedPreferences("GPS_ALARM", MODE_PRIVATE)
+        val uriString = prefs.getString("ringtone_uri", null)
+
+        val uri = if (uriString != null)
+            android.net.Uri.parse(uriString)
+        else
+            android.media.RingtoneManager.getDefaultUri(android.media.RingtoneManager.TYPE_ALARM)
+
+        val ringtone = android.media.RingtoneManager.getRingtone(this, uri)
+        ringtone.play()
+    }
     private var radiusMeters = 100
 
     // Declare a variable for MapView
@@ -85,10 +104,63 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
     private var isLocationEnabled = false
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
+
+    private lateinit var fusedLocationClient: FusedLocationProviderClient
+    private lateinit var locationCallback: LocationCallback
+
+    @SuppressLint("MissingPermission")
+    fun startLocationUpdates() {
+        if (ActivityCompat.checkSelfPermission(
+                this,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            Toast.makeText(this, "Location permission not granted", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
+
+        val locationRequest = LocationRequest.Builder(
+            Priority.PRIORITY_HIGH_ACCURACY, 3000
+        ).build()
+
+        locationCallback = object : LocationCallback() {
+            override fun onLocationResult(locationResult: LocationResult) {
+                val location = locationResult.lastLocation ?: return
+                checkIfReachedDestination(location.latitude, location.longitude)
+            }
+        }
+
+        fusedLocationClient.requestLocationUpdates(
+            locationRequest,
+            locationCallback,
+            mainLooper
+        )
+    }
+
+    private fun checkIfReachedDestination(currentLat: Double, currentLon: Double) {
+        val dest = destinationPoint ?: return
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(
+            currentLat, currentLon,
+            dest.latitude, dest.longitude,
+            results
+        )
+        val distance = results[0]
+        if (distance <= radiusMeters && isAlarmActive) {
+            playAlarmSound()
+            isAlarmActive = false
+            fusedLocationClient.removeLocationUpdates(locationCallback)
+            Toast.makeText(this, "Destination reached!", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
     private var busInfoSheet: BusInfoBottomSheetFragment? = null
     var isAlarmActive = false
+
 
 
 
@@ -1100,8 +1172,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
 
 
     private fun updateAlarmRadius(radius: Int) {
-
-        // ✅ CHECK 1: destination must be set
         val dest = destinationPoint
         if (dest == null) {
             Toast.makeText(this, "Set a destination first", Toast.LENGTH_SHORT).show()
@@ -1109,37 +1179,48 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         }
 
         val style = mapLibreMap.style ?: return
-
-        // ✅ Circle is centered on the DESTINATION, not current location
         val point = Point.fromLngLat(dest.longitude, dest.latitude)
         val feature = Feature.fromGeometry(point)
 
-        if (style.getSource("radius-source") == null) {
+        // Converts real-world meters → pixels at each zoom level for the destination's latitude
+        fun metersToPixelsExpression(meters: Int): Expression {
+            val lat = dest.latitude
+            // Earth's circumference in meters at the given latitude
+            val metersPerPixelAtZoom0 = 78271.484 * Math.cos(Math.toRadians(lat))
+            return interpolate(
+                exponential(2),
+                zoom(),
+                *Array(22) { z ->
+                    val pixelsAtZoom = meters / (metersPerPixelAtZoom0 / Math.pow(2.0, z.toDouble()))
+                    stop(z, pixelsAtZoom.toFloat())
+                }
+            )
+        }
 
+        if (style.getSource("radius-source") == null) {
             val source = GeoJsonSource("radius-source", feature)
             style.addSource(source)
 
             val circleLayer = CircleLayer("radius-layer", "radius-source")
                 .withProperties(
-                    circleRadius(radius.toFloat() / 10f),
-                    circleColor("rgba(0,0,0,0)"),
+                    circleRadius(metersToPixelsExpression(radius)),
+                    circleColor("rgba(0, 0, 0, 0)"),
                     circleStrokeColor("#3366FF"),
-                    circleStrokeWidth(1f)
+                    circleStrokeWidth(2f),
+                    circleOpacity(0.15f)
                 )
-
             style.addLayer(circleLayer)
-
         } else {
-
             val source = style.getSourceAs<GeoJsonSource>("radius-source")
             source?.setGeoJson(feature)
 
-            val layer = style.getLayer("radius-layer") as CircleLayer
-            layer.setProperties(
-                circleRadius(radius.toFloat() / 10f),
-                circleColor("rgba(0,0,0,0)"),
+            val layer = style.getLayer("radius-layer") as? CircleLayer
+            layer?.setProperties(
+                circleRadius(metersToPixelsExpression(radius)),
+                circleColor("rgba(0, 0, 0, 0)"),
                 circleStrokeColor("#3366FF"),
-                circleStrokeWidth(2f)
+                circleStrokeWidth(2f),
+                circleOpacity(0.15f)
             )
         }
     }

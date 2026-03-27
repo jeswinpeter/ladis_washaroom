@@ -64,9 +64,14 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
         }
 
         btnSet.setOnClickListener {
-            Toast.makeText(requireContext(), "Alarm Set!", Toast.LENGTH_SHORT).show()
-        }
+            (activity as? MainActivity)?.apply {
+                isAlarmActive = true
+                startLocationUpdates()   // 🔥 START TRACKING
+            }
 
+            Toast.makeText(requireContext(), "Alarm Set!", Toast.LENGTH_SHORT).show()
+            dismiss()
+        }
         return view
     }
 }
