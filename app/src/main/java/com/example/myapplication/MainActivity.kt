@@ -900,27 +900,36 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val query = """
-                {
-                  plan(
-                    from: {lat: ${origin.latitude}, lon: ${origin.longitude}}
-                    to: {lat: ${destination.latitude}, lon: ${destination.longitude}}
-                    numItineraries: 1
-                    transportModes: [
-                      {mode: BUS}, {mode: WALK}, {mode: TRAM},
-                      {mode: SUBWAY}, {mode: FERRY}
-                    ]
-                  ) {
-                    itineraries {
-                      duration
-                      legs {
-                        mode
-                        legGeometry { points }
-                        route { shortName }
+                    {
+                      plan(
+                        from: {lat: ${origin.latitude}, lon: ${origin.longitude}}
+                        to: {lat: ${destination.latitude}, lon: ${destination.longitude}}
+                        numItineraries: 1
+                        transportModes: [
+                          {mode: BUS}, {mode: WALK}, {mode: TRAM},
+                          {mode: SUBWAY}, {mode: FERRY}
+                        ]
+                      ) {
+                        itineraries {
+                          duration
+                          legs {
+                            mode
+                            distance
+                            legGeometry { points }
+                            from { name }
+                            to { name }
+                            route {
+                              shortName
+                              longName
+                              agency {
+                                name
+                              }
+                            }
+                          }
+                        }
                       }
                     }
-                  }
-                }
-            """.trimIndent()
+                """.trimIndent()
 
                 val requestBody = JSONObject().put("query", query).toString()
 
@@ -960,39 +969,64 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
                 val allPoints = mutableListOf<LatLng>()
                 val legParts = mutableListOf<String>()
-                var routeInfo = "Transit"
+                var primaryRoute = "Transit"
                 var firstTransit = true
 
                 for (i in 0 until legs.length()) {
                     val leg = legs.getJSONObject(i)
-                    val mode = leg.optString("mode", "WALK")
+                    val mode = leg.optString("mode", "WALK").uppercase()
                     val encoded = leg.optJSONObject("legGeometry")?.optString("points", "") ?: ""
+                    val distanceM = leg.optDouble("distance", 0.0).toInt()
 
                     if (encoded.isNotBlank()) {
                         allPoints.addAll(decodePolyline(encoded))
                     }
 
-                    when (mode.uppercase()) {
-                        "WALK" -> legParts.add("Walk")
-                        "BUS" -> {
-                            // GraphQL response has route as a nested object
-                            val route = leg.optJSONObject("route")?.optString("shortName", "Bus") ?: "Bus"
-                            legParts.add("Bus $route")
+                    val fromName = leg.optJSONObject("from")?.optString("name", "")?.takeIf { it.isNotBlank() && it != "Origin" }
+                    val toName   = leg.optJSONObject("to")?.optString("name", "")?.takeIf   { it.isNotBlank() && it != "Destination" }
+
+                    when (mode) {
+                        "WALK" -> {
+                            val distStr = if (distanceM > 0) " ~${distanceM}m" else ""
+                            legParts.add("🚶 Walk$distStr")
+                        }
+                        "BUS", "TRAM", "SUBWAY", "FERRY" -> {
+                            val routeObj   = leg.optJSONObject("route")
+                            val agencyName = routeObj?.optJSONObject("agency")?.optString("name", "")?.takeIf { it.isNotBlank() }
+                            val longName   = routeObj?.optString("longName", "")?.takeIf { it.isNotBlank() }
+
+                            val routeLabel = listOfNotNull(longName, agencyName).joinToString(", ")
+                                .ifBlank { mode.lowercase().replaceFirstChar { it.uppercase() } }
+
+                            val emoji = when (mode) {
+                                "TRAM"   -> "🚋"
+                                "SUBWAY" -> "🚇"
+                                "FERRY"  -> "⛴"
+                                else     -> "🚌"
+                            }
+
+                            val stopDetail = when {
+                                fromName != null && toName != null -> " ($fromName → $toName)"
+                                toName   != null                  -> " (to $toName)"
+                                else                              -> ""
+                            }
+                            legParts.add("$emoji $routeLabel$stopDetail")
+
                             if (firstTransit) {
-                                routeInfo = "Bus $route"
+                                primaryRoute = longName ?: agencyName ?: "Transit"
                                 firstTransit = false
                             }
                         }
-                        else -> legParts.add(mode)
+                        else -> legParts.add(mode.lowercase().replaceFirstChar { it.uppercase() })
                     }
                 }
 
-                val legsDesc = legParts.joinToString(" → ")
+                val legsDesc   = legParts.joinToString("  →  ")
                 val durationStr = if (durationMin > 0) "$durationMin min" else "–"
 
                 withContext(Dispatchers.Main) {
                     if (allPoints.isNotEmpty()) drawBusRoute(allPoints)
-                    busInfoSheet?.updateTransitData(routeInfo, durationStr, legsDesc)
+                    busInfoSheet?.updateTransitData(primaryRoute, durationStr, legsDesc)
                 }
 
             } catch (e: Exception) {
