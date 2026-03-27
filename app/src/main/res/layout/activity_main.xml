@@ -320,15 +320,6 @@
             android:src="@android:drawable/ic_input_add"
             app:fabSize="mini" />
 
-        <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/btnFareCalc"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginBottom="12dp"
-            android:contentDescription="Fare Calculator"
-            android:src="@android:drawable/ic_menu_compass"
-            app:fabSize="mini" />
-
         <!-- Fare Calculator Button -->
         <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnFareCalc"
