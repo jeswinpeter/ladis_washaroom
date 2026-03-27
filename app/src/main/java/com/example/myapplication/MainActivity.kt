@@ -82,8 +82,7 @@ import org.maplibre.geojson.Point
 import java.io.OutputStreamWriter
 import java.time.Instant
 
-class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
-    private fun playAlarmSound() {
+class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, PlaceDetailsFragment.OnGetDirectionsClickListener {    private fun playAlarmSound() {
 
         val prefs = getSharedPreferences("GPS_ALARM", MODE_PRIVATE)
         val uriString = prefs.getString("ringtone_uri", null)
@@ -1528,7 +1527,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         mapView.onSaveInstanceState(outState)
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-fun onGetDirectionsClicked() {
+    override fun onGetDirectionsClicked() {
         val searchBar = findViewById<MaterialCardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val closeDirections = findViewById<View>(R.id.btnCloseDirections)
