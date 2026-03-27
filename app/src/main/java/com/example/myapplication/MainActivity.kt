@@ -68,6 +68,7 @@ import org.maplibre.android.style.layers.PropertyFactory.lineCap
 import org.maplibre.android.style.layers.PropertyFactory.lineColor
 import org.maplibre.android.style.layers.PropertyFactory.lineJoin
 import org.maplibre.android.style.layers.PropertyFactory.lineWidth
+import org.maplibre.android.style.layers.PropertyFactory.visibility
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.geojson.Feature
 import org.maplibre.geojson.LineString
@@ -86,7 +87,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     private var destinationPoint: LatLng? = null
     private lateinit var placeDetailsSheetBehavior: BottomSheetBehavior<LinearLayout>
     private var pendingActionAfterGps: (() -> Unit)? = null
-    private var busInfoSheet: BusInfoBottomSheetFragment? = null
+    private var routeInfoSheet: RouteInfoBottomSheetFragment? = null
 
 
     @SuppressLint("MissingPermission")
@@ -703,8 +704,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
                         else    -> "–"
                     }
                     runOnUiThread {
-                        busInfoSheet?.let {
-                            if (it.isAdded) it.updateData(sitSide, sunPosition, advice)
+                        routeInfoSheet?.let {
+                            if (it.isAdded) it.updateSunSide(sitSide, sunPosition, advice)
                         }
                     }
                 } catch (e: Exception) {
@@ -956,7 +957,7 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
                 if (itineraries == null || itineraries.length() == 0) {
                     withContext(Dispatchers.Main) {
-                        busInfoSheet?.updateTransitData("No route", "–", "No transit route found")
+                        routeInfoSheet?.updateTransitData("No route", "–", "No transit route found")
                     }
                     return@launch
                 }
@@ -1026,13 +1027,13 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
 
                 withContext(Dispatchers.Main) {
                     if (allPoints.isNotEmpty()) drawBusRoute(allPoints)
-                    busInfoSheet?.updateTransitData(primaryRoute, durationStr, legsDesc)
+                    routeInfoSheet?.updateTransitData(primaryRoute, durationStr, legsDesc)
                 }
 
             } catch (e: Exception) {
                 Log.e("OTP", "Bus route fetch failed: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    busInfoSheet?.updateTransitData(
+                    routeInfoSheet?.updateTransitData(
                         "Unavailable", "–", "Bus route unavailable: ${e.localizedMessage}"
                     )
                 }
@@ -1081,11 +1082,11 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     ) {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val url =
-                    "https://router.project-osrm.org/route/v1/driving/" +
-                            "${origin.longitude},${origin.latitude};" +
-                            "${destination.longitude},${destination.latitude}" +
-                            "?overview=full&geometries=geojson"
+                // In fetchRouteFromOSRM — update the URL
+                val url = "https://router.project-osrm.org/route/v1/driving/" +
+                        "${origin.longitude},${origin.latitude};" +
+                        "${destination.longitude},${destination.latitude}" +
+                        "?overview=full&geometries=geojson&steps=true"   // ← add steps=true
 
                 val connection = URL(url).openConnection() as HttpURLConnection
                 connection.requestMethod = "GET"
@@ -1122,46 +1123,101 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
     }
 
     private fun calculateAndDisplayRoute(origin: LatLng, destination: LatLng) {
-
         fetchRouteFromOSRM(origin, destination) { response ->
-
             val json = JSONObject(response)
-
-            val routes = json.getJSONArray("routes")
-            val route = routes.getJSONObject(0)
-
+            val route = json.getJSONArray("routes").getJSONObject(0)
             val geometry = route.getJSONObject("geometry")
             val coordinates = geometry.getJSONArray("coordinates")
 
             val routePoints = mutableListOf<LatLng>()
-
             for (i in 0 until coordinates.length()) {
-
                 val point = coordinates.getJSONArray(i)
-
-                val lon = point.getDouble(0)
-                val lat = point.getDouble(1)
-
-                routePoints.add(LatLng(lat, lon))
+                routePoints.add(LatLng(point.getDouble(1), point.getDouble(0)))
             }
-
             drawRoute(mapLibreMap, routePoints)
             addOrUpdateCircleMarker(origin.latitude, origin.longitude, "start-source", "start-layer", "#007AFF")
 
-            // Show or update the Bus Info bottom sheet with placeholder data
-            val existing = busInfoSheet
-            if (existing == null || !existing.isAdded) {
-                val sheet = BusInfoBottomSheetFragment.newInstance()
-                sheet.show(supportFragmentManager, "BusInfo")
-                busInfoSheet = sheet
-            } else {
-                //existing.updateData("–", "–", "Awaiting route data...")
+            // Parse turn-by-turn steps
+            val steps = mutableListOf<RouteStep>()
+            val legs = route.optJSONArray("legs")
+            if (legs != null) {
+                for (i in 0 until legs.length()) {
+                    val legSteps = legs.getJSONObject(i).optJSONArray("steps") ?: continue
+                    for (j in 0 until legSteps.length()) {
+                        val s = legSteps.getJSONObject(j)
+                        val maneuver = s.optJSONObject("maneuver")
+                        val name = s.optString("name", "").ifBlank { "Continue" }
+                        val modifier = maneuver?.optString("modifier", "") ?: ""
+                        val type = maneuver?.optString("type", "") ?: ""
+                        val distanceM = s.optDouble("distance", 0.0).toInt()
+                        steps.add(RouteStep(name, type, modifier, distanceM))
+                    }
+                }
             }
 
-            // Fetch bus route from OTP in parallel
+            val distanceKm = String.format("%.1f", route.optDouble("distance", 0.0) / 1000)
+            val durationMin = (route.optDouble("duration", 0.0) / 60).toInt()
+
+            val existing = routeInfoSheet
+            if (existing == null || !existing.isAdded) {
+                val sheet = RouteInfoBottomSheetFragment.newInstance()
+                sheet.show(supportFragmentManager, "RouteInfo")
+                routeInfoSheet = sheet
+            }
+            routeInfoSheet?.setDrivingData(steps, durationMin, distanceKm)
+
             fetchBusRouteFromOTP(origin, destination)
             checkSunSide(origin, destination)
         }
+    }
+
+    // Simple data class
+    data class RouteStep(
+        val streetName: String,
+        val type: String,       // "turn", "depart", "arrive", etc.
+        val modifier: String,   // "left", "right", "straight", etc.
+        val distanceMeters: Int
+    ) {
+        val icon: String get() = when {
+            type == "arrive"                    -> "⊙"
+            type == "depart"                    -> "↑"
+            modifier == "left"                  -> "↰"
+            modifier == "right"                 -> "↱"
+            modifier == "sharp left"            -> "↩"
+            modifier == "sharp right"           -> "↪"
+            modifier == "slight left"           -> "↖"
+            modifier == "slight right"          -> "↗"
+            modifier.contains("uturn")         -> "↺"
+            else                               -> "↑"
+        }
+
+        val label: String get() = when (type) {
+            "depart" -> "Head ${modifier.ifBlank { "forward" }} on $streetName"
+            "arrive" -> "Arrive at destination"
+            "turn"   -> "Turn $modifier onto $streetName"
+            "roundabout", "rotary" -> "Take the roundabout onto $streetName"
+            "merge"  -> "Merge onto $streetName"
+            "fork"   -> "Keep $modifier at the fork"
+            else     -> if (streetName.isNotBlank()) "Continue on $streetName" else "Continue"
+        }
+
+        val distanceLabel: String get() = when {
+            distanceMeters == 0      -> ""
+            distanceMeters < 1000   -> "${distanceMeters}m"
+            else                    -> String.format("%.1f km", distanceMeters / 1000.0)
+        }
+    }
+
+    // INSIDE MainActivity class, alongside drawRoute / drawBusRoute / clearRoute
+    fun onMapModeChanged(mode: RouteInfoBottomSheetFragment.Mode) {
+        val style = mapLibreMap.style ?: return
+        val showDriving = mode == RouteInfoBottomSheetFragment.Mode.DRIVING
+        style.getLayer("route-layer")?.setProperties(
+            visibility(if (showDriving) Property.VISIBLE else Property.NONE)
+        )
+        style.getLayer("bus-route-layer")?.setProperties(
+            visibility(if (showDriving) Property.NONE else Property.VISIBLE)
+        )
     }
 
     /*private fun fetchSunSide(origin: LatLng, destination: LatLng) {
@@ -1236,8 +1292,8 @@ class MainActivity : AppCompatActivity(), PlaceDetailsFragment.OnGetDirectionsCl
         removeMarker("end-source", "end-layer")
         clearRoute()
 
-        busInfoSheet?.dismiss()
-        busInfoSheet = null
+        routeInfoSheet?.dismiss()
+        routeInfoSheet = null
     }
 
 // Map style changing
