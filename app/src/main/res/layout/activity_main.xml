@@ -303,6 +303,16 @@
         android:orientation="vertical">
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/btnGpsAlarm"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp"
+            android:layout_gravity="bottom|end"
+            android:src="@android:drawable/ic_lock_idle_alarm"
+            android:contentDescription="GPS Alarm"/>
+
+        <!-- Style Button (NEW) -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
             android:id="@+id/btnChangeStyle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -358,6 +368,46 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content" />
 
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/radiusSliderLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="@android:color/white"
+        android:padding="12dp"
+        android:visibility="gone"
+        android:elevation="8dp"
+        android:layout_gravity="bottom">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/txtRadiusLabel"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Radius"
+                android:textSize="16sp"
+                android:layout_weight="1"/>
+
+            <TextView
+                android:id="@+id/txtRadiusValue"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="500 m"
+                android:textSize="16sp"/>
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/seekRadius"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="50000"
+            android:progress="35000"/>
     </LinearLayout>
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

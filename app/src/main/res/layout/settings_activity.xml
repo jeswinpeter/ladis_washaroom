@@ -138,6 +138,7 @@
             android:textColor="?attr/colorPrimary"
             android:textSize="11sp" />
 
+
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -176,8 +177,22 @@
                     android:id="@+id/switchGPSAlarm"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content" />
+
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
+
+        <Button
+            android:id="@+id/btnSelectRingtone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Set GPS Alarm Ringtone"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="16dp"
+            android:layout_marginBottom="8dp"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeColor="?attr/colorSurfaceVariant"
+            app:strokeWidth="1dp"/>
 
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
