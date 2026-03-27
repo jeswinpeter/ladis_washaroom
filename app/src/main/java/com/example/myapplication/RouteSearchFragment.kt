@@ -246,7 +246,7 @@ root.addView(topBar)
                         RouteRow(
                             id = r.optInt("id", 0),
                             otpRouteId = r.optString("otp_route_id", null),
-                            shortName = r.optString("short_name", null),
+                            shortName = r.optString("operator", null),
                             longName = r.optString("long_name", null),
                             operator = r.optString("operator", null),
                             originName = r.optString("origin_name", null),
