@@ -758,7 +758,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     private fun checkSunSide(origin: LatLng, destination: LatLng) {
         val client = OkHttpClient()
 
-        val url = "http://10.0.2.2:3001/api/sun-side" +
+        val url = "http://139.59.65.249:3001/api/sun-side" +
                 "?originLat=${origin.latitude}" +
                 "&originLon=${origin.longitude}" +
                 "&destLat=${destination.latitude}" +
@@ -1023,7 +1023,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
 
                 val requestBody = JSONObject().put("query", query).toString()
 
-                val conn = URL("http://10.0.2.2:8080/otp/gtfs/v1").openConnection() as HttpURLConnection
+                val conn = URL("http://139.59.65.249:8080/otp/gtfs/v1").openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.setRequestProperty("Accept", "application/json")

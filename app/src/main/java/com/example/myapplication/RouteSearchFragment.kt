@@ -190,9 +190,9 @@ root.addView(topBar)
         }
 
         val url = if (params.isEmpty()) {
-            "http://10.0.2.2:3001/api/routes/search"
+            "http://139.59.65.249:3001/api/routes/search"
         } else {
-            "http://10.0.2.2:3001/api/routes/search?${params.joinToString("&")}" 
+            "http://139.59.65.249:3001/api/routes/search?${params.joinToString("&")}"
         }
         fetchRoutes(url)
     }
@@ -208,7 +208,7 @@ root.addView(topBar)
         val fused = LocationServices.getFusedLocationProviderClient(ctx)
         fused.lastLocation.addOnSuccessListener { location ->
             if (location != null) {
-                val url = "http://10.0.2.2:3001/api/routes/search?lat=${location.latitude}&lng=${location.longitude}"
+                val url = "http://139.59.65.249:3001/api/routes/search?lat=${location.latitude}&lng=${location.longitude}"
                 fetchRoutes(url)
             } else {
                 val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 0)
@@ -218,7 +218,7 @@ root.addView(topBar)
                     override fun onLocationResult(result: LocationResult) {
                         fused.removeLocationUpdates(this)
                         val fresh = result.lastLocation ?: return
-                        val url = "http://10.0.2.2:3001/api/routes/search?lat=${fresh.latitude}&lng=${fresh.longitude}"
+                        val url = "http://139.59.65.249:3001/api/routes/search?lat=${fresh.latitude}&lng=${fresh.longitude}"
                         fetchRoutes(url)
                     }
                 }
