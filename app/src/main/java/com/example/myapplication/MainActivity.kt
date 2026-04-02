@@ -82,8 +82,7 @@ import org.maplibre.geojson.Point
 import java.io.OutputStreamWriter
 import java.time.Instant
 
-class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
-    private fun playAlarmSound() {
+class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, PlaceDetailsFragment.OnGetDirectionsClickListener {    private fun playAlarmSound() {
 
         val prefs = getSharedPreferences("GPS_ALARM", MODE_PRIVATE)
         val uriString = prefs.getString("ringtone_uri", null)
@@ -759,7 +758,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
     private fun checkSunSide(origin: LatLng, destination: LatLng) {
         val client = OkHttpClient()
 
-        val url = "http://10.0.2.2:3001/api/sun-side" +
+        val url = "http://139.59.65.249:3001/api/sun-side" +
                 "?originLat=${origin.latitude}" +
                 "&originLon=${origin.longitude}" +
                 "&destLat=${destination.latitude}" +
@@ -1024,7 +1023,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
 
                 val requestBody = JSONObject().put("query", query).toString()
 
-                val conn = URL("http://10.0.2.2:8080/otp/gtfs/v1").openConnection() as HttpURLConnection
+                val conn = URL("http://139.59.65.249:8080/otp/gtfs/v1").openConnection() as HttpURLConnection
                 conn.requestMethod = "POST"
                 conn.setRequestProperty("Content-Type", "application/json")
                 conn.setRequestProperty("Accept", "application/json")
@@ -1528,7 +1527,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener {
         mapView.onSaveInstanceState(outState)
     }
     @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-fun onGetDirectionsClicked() {
+    override fun onGetDirectionsClicked() {
         val searchBar = findViewById<MaterialCardView>(R.id.searchBar)
         val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
         val closeDirections = findViewById<View>(R.id.btnCloseDirections)

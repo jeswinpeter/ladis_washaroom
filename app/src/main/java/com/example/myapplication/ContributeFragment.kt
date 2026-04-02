@@ -369,7 +369,7 @@ class ContributeFragment : Fragment() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val req = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/stops/nearby?lat=$lat&lng=$lng&radiusM=100")
+                    .url("http://139.59.65.249:3001/api/stops/nearby?lat=$lat&lng=$lng&radiusM=100")
                     .get()
                     .build()
                 val rsp = client.newCall(req).execute()
@@ -448,7 +448,7 @@ class ContributeFragment : Fragment() {
                     put("lng", lng)
                 }
                 val req = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/stops")
+                    .url("http://139.59.65.249:3001/api/stops")
                     .post(payload.toString().toRequestBody("application/json".toMediaType()))
                     .build()
                 val rsp = client.newCall(req).execute()
@@ -558,7 +558,7 @@ class ContributeFragment : Fragment() {
         lifecycleScope.launch(Dispatchers.IO) {
             try {
                 val nearbyReq = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/stops/nearby?lat=$finalLat&lng=$finalLon&radiusM=1000")
+                    .url("http://139.59.65.249:3001/api/stops/nearby?lat=$finalLat&lng=$finalLon&radiusM=1000")
                     .get()
                     .build()
                 val nearbyRes = client.newCall(nearbyReq).execute()
@@ -566,7 +566,7 @@ class ContributeFragment : Fragment() {
                 val nearStops = nearbyJson.optJSONArray("stops") ?: JSONArray()
 
                 val corridorReq = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/stops/corridor?lat1=${lastConfirmed.lat}&lon1=${lastConfirmed.lng}&lat2=$finalLat&lon2=$finalLon")
+                    .url("http://139.59.65.249:3001/api/stops/corridor?lat1=${lastConfirmed.lat}&lon1=${lastConfirmed.lng}&lat2=$finalLat&lon2=$finalLon")
                     .get()
                     .build()
                 val corridorRes = client.newCall(corridorReq).execute()
@@ -677,7 +677,7 @@ class ContributeFragment : Fragment() {
                 val lon = first.getString("lon").toDouble()
 
                 val req = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/stops/nearby?lat=$lat&lng=$lon&radiusM=200")
+                    .url("http://139.59.65.249:3001/api/stops/nearby?lat=$lat&lng=$lon&radiusM=200")
                     .get()
                     .build()
                 val res = client.newCall(req).execute()
@@ -754,7 +754,7 @@ class ContributeFragment : Fragment() {
         }
 
         val req = Request.Builder()
-            .url("http://10.0.2.2:3001/api/trips")
+            .url("http://139.59.65.249:3001/api/trips")
             .post(payload.toString().toRequestBody("application/json".toMediaType()))
             .build()
 
@@ -840,7 +840,7 @@ class ContributeFragment : Fragment() {
                 }
 
                 val req = Request.Builder()
-                    .url("http://10.0.2.2:3001/api/trips/$newId/merge")
+                    .url("http://139.59.65.249:3001/api/trips/$newId/merge")
                     .patch(payload.toString().toRequestBody("application/json".toMediaType()))
                     .build()
 
