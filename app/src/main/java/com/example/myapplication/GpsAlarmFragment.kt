@@ -7,6 +7,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Button
 import android.widget.Toast
+import android.content.Intent
 import com.google.android.material.bottomsheet.BottomSheetDialogFragment
 
 class GpsAlarmFragment : BottomSheetDialogFragment() {
@@ -63,14 +64,26 @@ class GpsAlarmFragment : BottomSheetDialogFragment() {
             dismiss()
         }
 
-        btnSet.setOnClickListener {
-            (activity as? MainActivity)?.apply {
-                isAlarmActive = true
-                startLocationUpdates()   // 🔥 START TRACKING
-            }
+            btnSet.setOnClickListener {
+                val targetLat = arguments?.getDouble("target_lat") ?: 0.0
+                val targetLon = arguments?.getDouble("target_lon") ?: 0.0
+                val radius    = seekBar.progress.takeIf { it > 0 } ?: 200
 
-            Toast.makeText(requireContext(), "Alarm Set!", Toast.LENGTH_SHORT).show()
-            dismiss()
+                if (targetLat == 0.0 && targetLon == 0.0) {
+                    Toast.makeText(requireContext(), "Set a destination on the map first", Toast.LENGTH_SHORT).show()
+                    return@setOnClickListener
+                }
+
+                val intent = Intent(requireContext(), GpsAlarmService::class.java).apply {
+                    action = GpsAlarmService.ACTION_START
+                    putExtra(GpsAlarmService.EXTRA_LAT, targetLat)
+                    putExtra(GpsAlarmService.EXTRA_LON, targetLon)
+                    putExtra(GpsAlarmService.EXTRA_RADIUS, radius)
+                }
+                requireContext().startServiceCompat(intent)
+
+                Toast.makeText(requireContext(), "Alarm set — ${radius}m from destination", Toast.LENGTH_SHORT).show()
+                dismiss()
         }
         return view
     }

@@ -131,7 +131,7 @@ root.addView(topBar)
 
         val btnNearby = styledButton("Show routes near me")
         val btnSearch = styledButton("Search")
-        val btnNewRoute = styledButton("This bus is not listed -- add new route")
+        val btnNewRoute = styledButton("+ add unlisted route" )
 
         resultsContainer = LinearLayout(ctx).apply {
             orientation = LinearLayout.VERTICAL
@@ -149,8 +149,9 @@ root.addView(topBar)
         root.addView(etDestStop)
         root.addView(btnNearby)
         root.addView(btnSearch)
-        root.addView(resultsContainer)
         root.addView(btnNewRoute)
+        root.addView(resultsContainer)
+
 
         btnSearch.setOnClickListener {
             searchByText()

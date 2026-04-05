@@ -26,6 +26,7 @@ import com.google.android.material.bottomsheet.BottomSheetBehavior
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
+import android.os.Build
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import androidx.core.view.ViewCompat
@@ -104,6 +105,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     private var isLocationEnabled = false
     private var startPoint: LatLng? = null
     private var destinationPoint: LatLng? = null
+    private val REQUEST_POST_NOTIFICATIONS = 1002
 
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
@@ -241,6 +243,8 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
             insets
         }
 
+        requestNotificationPermissionIfNeeded()
+
         // Init the MapView
         mapView = rootView.findViewById(R.id.mapView)
         mapView.getMapAsync { map ->
@@ -291,6 +295,10 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
             //Change GPS Alarm
             btnGpsAlarm.setOnClickListener {
 
+                if (destinationPoint == null) { Toast.makeText(this,
+                    "Set a destination first to use the GPS alarm",
+                    Toast.LENGTH_SHORT).show(); return@setOnClickListener }
+
                 if (!isLocationEnabled) {
                     handleMyLocationClick()   // ✅ enable GPS first
                     Toast.makeText(this, "Turn on GPS first", Toast.LENGTH_SHORT).show()
@@ -298,6 +306,10 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
                 }
 
                 val fragment = GpsAlarmFragment()
+                fragment.arguments = Bundle().apply {
+                    putDouble("target_lat", destinationPoint?.latitude ?: 0.0)
+                    putDouble("target_lon", destinationPoint?.longitude ?: 0.0)
+                }
                 fragment.show(supportFragmentManager, "GPS_ALARM")
             }
 
@@ -1275,10 +1287,34 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
 
         adjustMapZoom(radiusMeters)
     }
+    private fun requestNotificationPermissionIfNeeded() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {  // API 33
+            if (ContextCompat.checkSelfPermission(
+                    this, Manifest.permission.POST_NOTIFICATIONS
+                ) != PackageManager.PERMISSION_GRANTED
+            ) {
+                ActivityCompat.requestPermissions(
+                    this,
+                    arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                    REQUEST_POST_NOTIFICATIONS
+                )
+            }
+        }
+        // API 23–32: POST_NOTIFICATIONS doesn't exist, notifications are always allowed
+    }
+
     override fun onCancelAlarm() {
+        // Stop the foreground service
+        val intent = Intent(this, GpsAlarmService::class.java).apply {
+            action = GpsAlarmService.ACTION_STOP
+        }
+        startService(intent)
+        AlarmReceiver.cancelSnooze(this)
+        AlarmStateStore.clear(this)
+        // Remove map radius circle
         mapLibreMap.style?.let { style ->
-            style.removeLayer("radius-layer")
-            style.removeSource("radius-source")
+            if (style.getLayer("radius-layer") != null) style.removeLayer("radius-layer")
+            if (style.getSource("radius-source") != null) style.removeSource("radius-source")
         }
         isAlarmActive = false
         Toast.makeText(this, "Alarm Cancelled", Toast.LENGTH_SHORT).show()
@@ -1512,6 +1548,23 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
+        if (requestCode == REQUEST_POST_NOTIFICATIONS) {
+            if (grantResults.isEmpty() || grantResults[0] != PackageManager.PERMISSION_GRANTED) {
+                Toast.makeText(
+                    this,
+                    "Notifications disabled — GPS alarm will ring but won't show a notification",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return
+        }
+        if (requestCode == 1001 && grantResults.isNotEmpty() &&
+            grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            mapLibreMap.style?.let { enableLocation(it) }
+            pendingActionAfterGps?.invoke()
+            pendingActionAfterGps = null
+        }
+
         if (requestCode == 1001 &&
             grantResults.isNotEmpty() &&
             grantResults[0] == PackageManager.PERMISSION_GRANTED
@@ -1555,7 +1608,30 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     }
 
     override fun onStart() { super.onStart(); mapView.onStart() }
-    override fun onResume() { super.onResume(); mapView.onResume() }
+    override fun onResume() {
+        super.onResume()
+        mapView.onResume()
+        checkAndShowAlarmBanner()
+    }
+
+    private fun checkAndShowAlarmBanner() {
+        val banner = findViewById<MaterialCardView>(R.id.alarmActiveBanner) ?: return
+        if (AlarmStateStore.isActive(this)) {
+            banner.visibility = View.VISIBLE
+            banner.findViewById<Button>(R.id.btnCancelAlarmBanner)?.setOnClickListener {
+                val intent = Intent(this, GpsAlarmService::class.java).apply {
+                    action = GpsAlarmService.ACTION_STOP
+                }
+                startService(intent)           // stopService path — safe on all API levels
+                AlarmReceiver.cancelSnooze(this)
+                AlarmStateStore.clear(this)
+                banner.visibility = View.GONE
+                Toast.makeText(this, "GPS Alarm cancelled", Toast.LENGTH_SHORT).show()
+            }
+        } else {
+            banner.visibility = View.GONE
+        }
+    }
     override fun onPause() { super.onPause(); mapView.onPause() }
     override fun onStop() { super.onStop(); mapView.onStop()
             super.onStop()
