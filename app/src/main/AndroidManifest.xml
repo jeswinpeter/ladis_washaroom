@@ -6,6 +6,12 @@
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 
     <application
         android:allowBackup="true"
@@ -17,6 +23,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.MyApplication"
         android:usesCleartextTraffic="true">
+
+        <service
+            android:name=".GpsAlarmService"
+            android:foregroundServiceType="location"
+            android:exported="false" />
+
+        <receiver
+        android:name=".AlarmReceiver"
+        android:exported="false">
+        <intent-filter>
+                <action android:name="com.example.myapplication.ALARM_SNOOZE" />
+                <action android:name="com.example.myapplication.ALARM_DISMISS" />
+                <action android:name="com.example.myapplication.ALARM_SNOOZE_REFIRE" />
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+        </intent-filter>
+        </receiver>
 
         <activity
             android:name=".MainActivity"
