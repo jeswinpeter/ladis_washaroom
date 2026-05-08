@@ -27,6 +27,7 @@ import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.Toast
 import android.os.Build
+import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import com.example.myapplication.R
 import androidx.core.view.ViewCompat
@@ -110,6 +111,9 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
 
+    private var backPressedTime: Long = 0
+    private var backToast: Toast? = null
+
     @SuppressLint("MissingPermission")
     fun startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(
@@ -192,7 +196,7 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
+        doubleBackPressExit()
         // Init MapLibre
         MapLibre.getInstance(this)
 
@@ -1641,4 +1645,34 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     }
     override fun onDestroy() { super.onDestroy(); mapView.onDestroy() }
     override fun onLowMemory() { super.onLowMemory(); mapView.onLowMemory() }
+
+    private fun doubleBackPressExit() {
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                if (supportFragmentManager.backStackEntryCount > 0) {
+                    isEnabled = false
+                    onBackPressedDispatcher.onBackPressed()
+                    isEnabled = true
+                    return
+                }
+
+//                This will handle the Double press logic
+                if (System.currentTimeMillis() - backPressedTime < 2000) {
+                    backToast?.cancel()
+                    finish()
+                } else {
+                    backToast?.cancel()
+                    backToast = Toast.makeText(
+                        this@MainActivity,
+                        "Press back again to exit",
+                        Toast.LENGTH_SHORT
+                    )
+                    backToast?.show()
+                }
+
+                backPressedTime = System.currentTimeMillis()
+            }
+        })
+    }
+
 }
