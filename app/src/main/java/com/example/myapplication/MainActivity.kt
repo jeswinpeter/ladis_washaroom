@@ -168,8 +168,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
     var isAlarmActive = false
 
 
-
-
     @SuppressLint("MissingPermission")
     private val locationSettingsLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -218,17 +216,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
         val closeDirections = findViewById<LinearLayout>(R.id.btnCloseDirections)
         val btnClose = findViewById<ImageButton>(R.id.btnClose)
         val btnGpsAlarm = findViewById<FloatingActionButton>(R.id.btnGpsAlarm)
-
-        /*btnGetDirections.setOnClickListener {
-            val searchBar = findViewById<CardView>(R.id.searchBar)
-            searchBar.visibility = View.GONE
-            btnGetDirections.visibility = View.GONE
-            closeDirections.visibility= View.VISIBLE
-            directionsPanel.visibility = View.VISIBLE
-            searchEditText.text.clear()
-            btnSearch.setImageResource(android.R.drawable.ic_menu_search)
-            btnSearch.tag = "search"
-        }*/
 
 
         // Set up persistent bottom sheet (initially hidden, map stays interactive behind it)
@@ -548,10 +535,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
                             destinationPoint = latLng
                             addOrUpdateCircleMarker(lat, lon, "end-source", "end-layer", "#E63946")
 
-                            // Show the Directions button
-                            //val btnGetDirections = findViewById<Button>(R.id.btnGetDirections)
-                            //btnGetDirections.visibility = View.VISIBLE
-
                             // Pre-fill the destination in the hidden panel
                             findViewById<EditText>(R.id.etDestination).setText(displayName)
                             val btnSearchDest = findViewById<ImageButton>(R.id.btnSearchDestination)
@@ -740,36 +723,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
             }
         }
     }
-
-
-// This portion was used to connect with backend that vasu did. It shows routes in the terminal
-// calculateAndDisplayRoute() should call this funciton for this to work
-//    private fun callRoutesBackend(origin: LatLng, destination: LatLng) {
-//        val client = OkHttpClient()
-//
-//        val url =
-//            "http://10.0.2.2:3001/api/routes" +
-//                    "?originLat=${origin.latitude}" +
-//                    "&originLon=${origin.longitude}" +
-//                    "&destLat=${destination.latitude}" +
-//                    "&destLon=${destination.longitude}"
-//
-//        val request = Request.Builder()
-//            .url(url)
-//            .get()
-//            .build()
-//
-//        client.newCall(request).enqueue(object : Callback {
-//            override fun onFailure(call: Call, e: IOException) {
-//                android.util.Log.e("ROUTES_API", "Request failed", e)
-//            }
-//
-//            override fun onResponse(call: Call, response: Response) {
-//                val body = response.body?.string()
-//                android.util.Log.d("ROUTES_API", "Response: $body")
-//            }
-//        })
-//    }
 
     private fun checkSunSide(origin: LatLng, destination: LatLng) {
         val client = OkHttpClient()
@@ -1435,41 +1388,6 @@ class MainActivity : AppCompatActivity(), GpsAlarmFragment.RadiusListener, Place
             visibility(if (showDriving) Property.NONE else Property.VISIBLE)
         )
     }
-
-    /*private fun fetchSunSide(origin: LatLng, destination: LatLng) {
-        val url = "http://10.0.2.2:3001/api/sun-side" +
-            "?originLat=${origin.latitude}" +
-            "&originLon=${origin.longitude}" +
-            "&destLat=${destination.latitude}" +
-            "&destLon=${destination.longitude}"
-
-        val client = OkHttpClient()
-        val request = Request.Builder().url(url).get().build()
-
-        client.newCall(request).enqueue(object : Callback {
-            override fun onFailure(call: Call, e: IOException) {
-                runOnUiThread {
-                    busInfoSheet?.updateData("–", "–", "Could not fetch seating advice")
-                }
-            }
-
-            override fun onResponse(call: Call, response: Response) {
-                val body = response.body?.string() ?: return
-                try {
-                    val json = JSONObject(body)
-                    val advice  = json.optString("advice", "No advice available")
-                    val sitSide = json.optString("sit_side", "–")
-                    runOnUiThread {
-                        busInfoSheet?.updateData(sitSide, "–", advice)
-                    }
-                } catch (e: Exception) {
-                    runOnUiThread {
-                        busInfoSheet?.updateData("–", "–", "Could not parse seating advice")
-                    }
-                }
-            }
-        })
-    }*/
 
     private fun resetDirectionsPanel(
         directionsPanel: MaterialCardView,

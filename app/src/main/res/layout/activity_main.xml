@@ -405,6 +405,7 @@
 
     </LinearLayout>
 
+    <!-- Place details sheet styling -->
     <LinearLayout
         android:id="@+id/placeDetailsSheet"
         android:layout_width="match_parent"
@@ -413,7 +414,7 @@
         android:elevation="8dp"
         android:orientation="vertical"
         app:behavior_hideable="true"
-        app:behavior_peekHeight="110dp"
+        app:behavior_peekHeight="220dp"
         app:layout_behavior="com.google.android.material.bottomsheet.BottomSheetBehavior">
 
         <FrameLayout
